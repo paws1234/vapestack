@@ -4,7 +4,7 @@ import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Container } from "@/components/ui/container";
-import { listingHref, PAGE_SIZE, paginate, parsePage } from "@/lib/pagination";
+import { listingHref, paginate, parsePage } from "@/lib/pagination";
 import { parseSort, sortProducts } from "@/lib/product-sort";
 import { getCatalogue } from "@/lib/wp/catalog";
 
@@ -66,7 +66,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     <Container className="py-10">
       <h1 className="text-3xl font-semibold text-ink-50 sm:text-4xl">Shop</h1>
       <p className="mt-2 max-w-2xl text-ink-200">
-        The whole catalogue, read live from WooCommerce over GraphQL — {PAGE_SIZE} at a time.
+        The whole catalogue, read live from WooCommerce over GraphQL.
       </p>
 
       <div className="mt-8">

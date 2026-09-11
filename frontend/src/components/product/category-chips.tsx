@@ -1,17 +1,23 @@
 import Link from "next/link";
-import { DEFAULT_SORT, type Sort } from "@/lib/product-sort";
+import { ChipRangeGroup } from "@/components/product/chip-range-group";
+import { CHIP_SELECTED, CHIP_UNSELECTED } from "@/components/product/chip-styles";
+import { GROUP_LABEL, splitRanges } from "@/lib/nav";
+import { listingHref } from "@/lib/pagination";
+import type { Sort } from "@/lib/product-sort";
 import type { Category } from "@/lib/wp/types";
-
-const BASE = "rounded-full border px-4 py-2 text-sm transition";
-const SELECTED = `${BASE} border-neon-400 bg-neon-400/10 text-neon-400`;
-const UNSELECTED = `${BASE} border-line text-ink-200 hover:border-neon-400/60 hover:text-neon-400`;
 
 /**
  * Range filter, as links rather than client state so a filtered shop is a real URL.
  *
  * The ordering rides along in every href: changing range keeps the visitor's sort rather than
  * quietly resetting it, and the chips stay ordinary links, so both the range and the order work
- * with JavaScript switched off.
+ * with JavaScript switched off. `listingHref` builds those addresses, the same function the pager
+ * and the canonical use.
+ *
+ * The hardware ranges are **grouped behind one chip** (`ChipRangeGroup`), so a nine-range catalogue
+ * is a row of six controls rather than ten that wrap onto three lines on a phone. Which ranges are
+ * grouped is `lib/nav.ts`'s rule — the same one the header's menu and the footer's column follow.
+ * Switching range deliberately drops the page number: page 3 of a different range means nothing.
  *
  * @param props.categories Ranges to offer.
  * @param props.active     Slug of the range being viewed. Absent means "All", which is the only
@@ -28,30 +34,33 @@ export function CategoryChips({
   active?: string;
     sort?: Sort;
 }) {
-  function href(path: string): string {
-    return sort && DEFAULT_SORT !== sort ? `${path}?sort=${sort}` : path;
-  }
+  const { inline, grouped } = splitRanges(categories);
+  const order = sort ?? "name";
 
   return (
     <nav aria-label="Filter by range" className="flex flex-wrap gap-2">
       <Link
-        href={href("/shop")}
-        className={active ? UNSELECTED : SELECTED}
+        href={listingHref("/shop", order)}
+        className={active ? CHIP_UNSELECTED : CHIP_SELECTED}
         aria-current={active ? undefined : "page"}
       >
         All
       </Link>
 
-      {categories.map((category) => (
+      {inline.map((category) => (
         <Link
           key={category.slug}
-          href={href(`/shop/${category.slug}`)}
-          className={active === category.slug ? SELECTED : UNSELECTED}
+          href={listingHref(`/shop/${category.slug}`, order)}
+          className={active === category.slug ? CHIP_SELECTED : CHIP_UNSELECTED}
           aria-current={active === category.slug ? "page" : undefined}
         >
           {category.name}
         </Link>
       ))}
+
+      {grouped.length > 0 && (
+        <ChipRangeGroup label={GROUP_LABEL} items={grouped} active={active} sort={order} />
+      )}
     </nav>
   );
 }

@@ -99,6 +99,7 @@ believing it, and measure where content actually ends before drawing a conclusio
 | T17 | The home hero, after the catalogue grew | done | T2, T11, T16 |
 | T18 | Listings are paged, nine at a time | done | T8 |
 | T19 | The footer groups its ranges too | done | T3, T16 |
+| T20 | The filter row groups its ranges too | done | T8, T18 |
 
 Keep this table in step with the checkboxes: when a task is ticked, change its row here too.
 
@@ -1600,3 +1601,56 @@ one `Vape` trigger, the same grouping the header uses.
 > `lib/use-disclosure.ts`; `NavLinks` and `FooterRangeGroup` are now presentational, and the header
 > was re-measured after the refactor at 0 overflow. Overflow is also **0** at 1440, 768, 390 and 320
 > with the footer group open. Screenshot: `/tmp/ui/grow/footer-vape-open-1440.png`.
+
+## T20 — The filter row groups its ranges too — `[x]` done
+
+**Goal** — The range filter stops being ten pills that wrap onto four lines on a phone. All and the
+four ungrouped ranges stay, and the hardware shelf sits behind one `Vape` chip that opens a list —
+the third surface to follow `lib/nav.ts`'s grouping rule, after the header's menu and the footer's
+column.
+
+**Context to load** — `components/product/category-chips.tsx`, `chip-range-group.tsx` (new),
+`chip-styles.ts` (new), `lib/nav.ts`, `lib/use-disclosure.ts`, `lib/pagination.ts` (`listingHref`).
+
+**In scope** — the filter row, and the `/shop` subtitle losing its page size. **Out of scope** — the
+mobile panel, and anything that changes which ranges exist.
+
+**Acceptance criteria**
+
+1. The row reads All, the four ungrouped ranges and one `Vape` chip.
+2. The chip is the selected chip when the range being viewed is inside it, and its list marks that
+   range with `aria-current="page"`.
+3. Its links carry the ordering, exactly as the plain chips do, and switching range still drops the
+   page number.
+4. It opens and closes like the other two disclosures, and the open panel never leaves the viewport.
+
+**Verify** — driven in a real Chromium at seven widths, plus `build`/`tsc`/`lint` and the route sweeps.
+
+**Size** — S
+
+> verified: the row at 1440 is **38px tall** — All, Disposable Vape, E-Liquids, Nicotine Pouches, Pod
+> Cartridge and `Vape` — with the group's five ranges in a panel that is `hidden` (and so out of the
+> tab order) until it opens. On `/shop/vape-coils` the chip measures `rgb(182, 255, 61)` for both
+> colour and border with the group's own `Vape Coils` carrying `aria-current="page"`, and no other
+> chip is marked. The panel's links carry the ordering — opened at `?sort=price-asc`, every item is
+> `/shop/vape-<thing>?sort=price-asc` — and following one lands on
+> `/shop/vape-coils?sort=price-asc` with the panel closed.
+
+> verified: **the open panel overflowed, and the first fix would not have worked.** Anchored to the
+> chip's left edge it reached x=839 in a 768px viewport (+71px) and x=359 in a 320px viewport (+39px),
+> because the chip wraps to wherever the row breaks. The placement is now measured in the chip's click
+> handler — the roomier side wins, and the width is clamped to the room on that side — after a
+> `w-[calc(100vw-${n}px)]` class was rejected for a build-time reason: Tailwind cannot see a class it
+> has to interpolate, so it would never have been generated. Re-measured with the panel open:
+> **overflow 0 at 1440, 1280, 1024, 768, 390, 360 and 320**.
+
+> verified: Enter opens the chip (`aria-expanded="true"`, focus stays on `Vape`) and Escape closes it
+> with focus back on the chip; the behaviour is `useDisclosure`, shared with the header and footer, and
+> the chip classes are shared with the plain chips through `chip-styles.ts` (a module rather than one
+> component importing the other, which would be a cycle across the server/client line).
+
+> verified: `/shop`'s subtitle is back to "The whole catalogue, read live from WooCommerce over
+> GraphQL." — the page size is not something a visitor needs, and the count line under it already says
+> which slice is on screen. `npm run build`, `npx tsc --noEmit` and `npm run lint` are clean, and both
+> route sweeps (11 routes at 320, 8 routes at three widths) report 0 overflow and one `h1` each.
+> Screenshots: `/tmp/ui/grow/chips-open-1440.png`, `chips-active-1440.png`.

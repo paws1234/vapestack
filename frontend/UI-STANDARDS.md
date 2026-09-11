@@ -200,9 +200,22 @@ would be the same lie as an empty range rendering a listing.
 
 **The footer groups its ranges the same way the header does.** `lib/nav.ts` owns which ranges are
 grouped (names that read `Vape <thing>`) and `lib/use-disclosure.ts` owns how a disclosure opens —
-Escape, the focus return, the outside press — so the header's floating menu and the footer's in-place
-list cannot drift apart. A footer column expands **in place**: there is nothing to overlay in a
-footer, and pushing the rows below down is how a list opens.
+Escape, the focus return, the outside press — so the header's floating menu, the footer's in-place
+list and the filter row's chip cannot drift apart. A footer column expands **in place**: there is
+nothing to overlay in a footer, and pushing the rows below down is how a list opens.
+
+**The range filter is one row of six, not ten.** `CategoryChips` renders All, the four ungrouped
+ranges and one `Vape` chip that opens the hardware shelf; the chip classes live in
+`chip-styles.ts` so the grouped chip looks like the plain ones. It is the selected chip when the
+range being viewed is inside it, and its links carry the ordering through `listingHref` exactly as the
+plain chips do.
+
+**A dropdown must pick its side, and be measured at the widths that matter.** The chip wraps to
+wherever the filter row breaks, so a panel always anchored to its left edge ran off the viewport:
+measured **+71px at 768** and **+39px at 320**. `ChipRangeGroup` measures the trigger when it opens
+and anchors to the roomier side, clamping the width to the room on that side — a `style` attribute,
+because the value cannot be known until the chip has been laid out. Re-measured with the panel open:
+overflow **0** at 1440, 1280, 1024, 768, 390, 360 and 320.
 
 Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
 keyboard, is struck through, and is explained by a notice that names the working alternative.
