@@ -59,7 +59,7 @@ live here.
 | T16 | Self-contained product images | done | T15 |
 | T17 | Tunnel-proof catalogue and degraded checkout | done | T16 |
 | T18 | Publish: tunnel, GitHub, Vercel, first deploy | done | T17, the user's accounts |
-| T19 | Verify from the public URL | not started | T18 |
+| T19 | Verify from the public URL | done | T18 |
 
 Notes on the remaining rows:
 
@@ -86,6 +86,12 @@ Notes on the remaining rows:
     **warmed** route still fails with the tunnel down, the fallback is a committed six-product JSON
     snapshot that `catalog.ts` reads when WordPress is unreachable; record that in T19 rather than
     assuming it.
+    **T19 measured it: no route failed and no snapshot was built.** With the tunnel stopped, `/`,
+    `/shop`, a range, a product and `/checkout` all still served the catalogue, and a warmed entry
+    does not decay — `/shop` was probed every 30s for five minutes past the end of the 300s
+    `REVALIDATE_SECONDS` window and kept answering with its six products. Next serves the stale
+    data-cache entry and retries the revalidation in the background, so the `OfflineNotice` is what
+    a route that was *never* requested since the deploy shows, not what a warmed one falls back to.
 - **T18 needs the user**: there is no GitHub account, no Vercel account and no cloudflared on this
   machine, and both `gh`/`vercel` logins are interactive, so the agent cannot complete them alone.
   Plan the handoff explicitly and do not paste a token into the conversation.
@@ -1066,7 +1072,7 @@ show the host is picked up rather than hard-coded.
 
 ---
 
-## T19 — Verify from the public URL — [ ]
+## T19 — Verify from the public URL — [x] done
 
 **Goal** — The deployed storefront is proved, from the outside, to browse, to create a real order,
 and to survive the tunnel going down.
@@ -1101,3 +1107,45 @@ still open.
 evidence committed.
 
 **Size** M
+
+> verified: T15-T18 already carried their own evidence and checkboxes; nothing in T19 changed them.
+> Driver: `playwright` 1.62.1 from the npx cache (`NODE_PATH=~/.npm/_npx/705bc6b22212b352/node_modules`)
+> against its own `chromium-1234`, because the VS Code browser pane cannot be resized past its width
+> and pads a "wide" shot into a phone layout. Scripts and shots in `/tmp/ui/t19/`.
+> **Three widths, nine PNGs, no overflow.** Home, `/shop` and `/product/neon-rush-6000` at
+> 1440x900, 768x1024 and 390x844, each one `file`-confirmed at the requested size; `scrollWidth -
+> innerWidth` was **0** on all fifteen route/width combinations (`/`, `/shop`, `/shop/e-liquids`,
+> `/product/neon-rush-6000`, `/checkout`), every one answering **200** with the age gate dismissed.
+> Content reaches x=1263/1440, 735/768 and 369/390, so the wide shots really are wide layouts rather
+> than a padded phone render. `/product` images resolve to `/_next/image?url=%2Fproducts%2F...`.
+> **A real order, placed from the public URL.** In the browser: pick `Neon Rush 6000` / `Blue Razz
+> Ice · 3mg` ($12.99) on the PDP, "Add to cart", fill the checkout form, submit — `POST
+> /api/checkout` answered **200** and the browser landed on
+> `https://vapestack-paws1234s-projects.vercel.app/checkout/success/102` reading "Order 102 / Order
+> placed / WooCommerce recorded it as Processing / Neon Rush 6000 × 1 $12.99 / Total $12.99", cart
+> emptied. `wpdev wp eval` over `wc_get_orders()` read it back: `id=102 status=processing
+> total=12.99 billing=Jamie T19public email=t19-public@example.com note=T19 order from the public URL
+> 2026-09-11`, `line: Neon Rush 6000 x1 line_total=12.99`, newest three orders 102 / 101 / 100.
+> **Tunnel stopped (`bash tools/tunnel.sh --stop`; the host then answered 530 and `pgrep
+> cloudflared` was empty) and everything still browsed.** `/` (3 images), `/shop` (6), `/shop/e-liquids`
+> (2) and `/product/neon-rush-6000` (1) each answered **200** serving the catalogue, with every image
+> decoded from `/_next/image?url=%2Fproducts%2F...`, and an empty browser console. Submitting the
+> checkout form reached **`/checkout/success/demo`**: "Demo mode / Nothing was ordered / WooCommerce
+> could not be reached, so no order was created and no stock moved", the line and the $12.99 total
+> kept in the tab; `wc_get_orders()` still counted **10**, so nothing was written.
+> **The snapshot fallback was not needed, and the reason is the finding.** T19's condition was "if a
+> warmed route fails". None did: `/shop` was probed every 30 seconds from 08:44:47Z to 08:49:52Z —
+> five minutes past the end of the 300s `REVALIDATE_SECONDS` window in `graphql.ts` — and answered
+> with its six products every time, with the tunnel closed throughout. Next serves the stale
+> data-cache entry and retries revalidation in the background rather than substituting the offline
+> message, so the `OfflineNotice` is the answer for a route that was never requested since the
+> deploy (T17's finding), not the fate of a warmed one. Recorded in the Notes table above; no
+> snapshot file was added and no code changed.
+> **The demo was put back afterwards**: `bash tools/tunnel.sh` gave host
+> `you-actress-treaty-jobs.trycloudflare.com` and deployment
+> `vapestack-8lyy21w7a-paws1234s-projects.vercel.app`, warmed twelve routes at 200, and the alias
+> answers 200 on `/`, `/shop`, `/product/neon-rush-6000` and `/checkout`.
+> Two traps for the next session: **two elements carry `role="dialog"`** — the mobile nav is always
+> in the DOM, so the cart drawer has to be matched as `[aria-labelledby='cart-drawer-title']`; and the
+> age gate's confirm button **unmounts** the gate instead of setting `data-age-gate="off"`, so waiting
+> on that attribute times out — wait for `[data-age-gate-root]` to detach.
