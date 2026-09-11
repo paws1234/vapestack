@@ -3,8 +3,16 @@
 What the frontend may rely on from `http://localhost:8889/graphql`, and how it was proved.
 
 Verified on 2026-09-11 against WordPress, WooCommerce 11.1.0, WPGraphQL 2.22.3 and GraphQL for
-eCommerce (the plugin in `wp-graphql-woocommerce/`) 1.0.3, with the catalogue seeded by
-`wp-content/themes/vapestack-theme/tools/seed-products.php` (6 products, 20 variations).
+eCommerce (the plugin in `wp-graphql-woocommerce/`) 1.0.3.
+
+The catalogue is **17 imported products**, every one of them simple, created by
+`wp-content/themes/vapestack-theme/tools/import-source-products.php` from the reviewed fixture in
+`tools/data/source-products.json`. Nothing is seeded any more: `tools/seed-products.php` is still in
+the repository as the six-product demo catalogue it started as, and re-running it brings those six
+variable products back, but they are not part of the shop. The consequence for this contract is
+simple and worth stating: **the variation rules below are documented but currently unexercised**, and
+every imported product carries custom specification attributes instead, which is the one place this
+contract has to say more than it used to.
 
 Endpoint: `POST /graphql`. Introspection is disabled on this site, so new fields have to be
 probed directly — the error messages name the correct type, which is how `GlobalProductAttribute`
@@ -30,6 +38,15 @@ query Catalogue($first: Int = 50) {
       }
       ... on SimpleProduct {
         price(format: RAW)
+        # An imported product's published specifications: custom (non-taxonomy) attributes, where
+        # label is the human name and options hold the values themselves. Aliased away from
+        # attributes, which is what the variation selectors are built from.
+        specs: attributes {
+          nodes {
+            label
+            options
+          }
+        }
       }
       ... on VariableProduct {
         attributes {
@@ -71,7 +88,10 @@ query Product($slug: ID!) {
     image { sourceUrl altText }
     productCategories { nodes { name slug } }
     ... on InventoriedProduct { stockStatus }
-    ... on SimpleProduct { price(format: RAW) }
+    ... on SimpleProduct {
+      price(format: RAW)
+      specs: attributes { nodes { label options } }
+    }
     ... on VariableProduct {
       attributes {
         nodes {
@@ -98,6 +118,11 @@ query Product($slug: ID!) {
 
 ## Rules the frontend must follow
 
+**The examples in these rules name products from the retired seeded catalogue** — Neon Rush 6000, the
+Pulse Pod Kit, Midnight Berry E-Liquid. They were the only variable products this site has ever had,
+so they are what the variation rules were proved against. Nothing in the current catalogue exercises
+them; rules 12 and the specification notes are what today's products rely on.
+
 1. **Prices need `format: RAW`.** Without it, `price` is a formatted string including the currency
    symbol (`"$14.99"`). With it, a variation returns a plain decimal string (`"14.99"`).
 2. **A variable product's own price is unusable.** `price(format: RAW)` on a `VariableProduct`
@@ -116,7 +141,7 @@ query Product($slug: ID!) {
 5. **`label` on a product attribute is the attribute name** ("Flavour", "Nicotine Strength",
    "Colour") — that is the selector heading.
 6. **Stock is an enum:** `IN_STOCK` or `OUT_OF_STOCK`. It is per variation, so a combination can be
-   sold out while the parent stays `IN_STOCK` — Neon Rush `mango-sunset` + `6mg` is seeded that way
+   sold out while the parent stays `IN_STOCK` — Neon Rush `mango-sunset` + `6mg` was seeded that way
    and must render as an unavailable selection. A product is only unsellable when *every*
    variation is `OUT_OF_STOCK`.
 7. **Image URLs are absolute on the WordPress origin** and include the site URL, for example
@@ -124,7 +149,7 @@ query Product($slug: ID!) {
    those have to be rewritten to the public origin, which is what `src/lib/wp/publicUrl.ts` exists
    for. Nothing else in the payload needs rewriting.
 8. **Ordering is not guaranteed.** `products` returns them in an order defined by WordPress, not by
-   the seeded catalogue, so the app sorts explicitly for anything that must be stable.
+   the catalogue, so the app sorts explicitly for anything that must be stable.
 9. **Descriptions contain HTML** (`<p>6000 puffs…</p>` plus a trailing newline), so they must be
    rendered as rich text, not as escaped text.
 10. **An unknown slug is an error, not a null.** `product(id: "does-not-exist", idType: SLUG)`
@@ -140,6 +165,16 @@ query Product($slug: ID!) {
     `... on InventoriedProduct { stockStatus }`, which covers both simple and variable products
     and still arrives merged into the product object. The same field on `ProductVariation` needs
     no fragment and is used unqualified.
+12. **A custom attribute's options are values, not slugs.** The imported products carry their
+    specifications as custom (non-taxonomy) attributes — `id: 0`, no taxonomy. GraphQL answers
+    them through the same `attributes` field a variable product uses, but the union member is
+    `LocalProductAttribute`, where `label` is the human name and `options` are the values
+    themselves: `{ label: "Battery", options: ["1300 mAh"] }`. There is no `terms` on this member,
+    and asking for one fails, which is why the storefront aliases the field to `specs` for simple
+    products and keeps `attributes` for the selectors. Probed directly: the query in
+    *The query* above returns six spec nodes for `adalya-myvo-30k`.
+
+## Specifications on an imported product
 
 ## Sample response (trimmed)
 
@@ -188,16 +223,57 @@ query Product($slug: ID!) {
 }
 ```
 
-## Seeded catalogue
+## The catalogue
 
-| SKU | Product | Category | Type | Variations |
-| --- | --- | --- | --- | --- |
-| VS-DSP-6000 | Neon Rush 6000 | Disposables | variable: flavour x nicotine | 6, one sold out |
-| VS-DSP-3000 | Frost Rush 3000 | Disposables | variable: flavour x nicotine | 4 |
-| VS-ELQ-BERRY | Midnight Berry E-Liquid | E-Liquids | variable: flavour x nicotine (0/3/6mg) | 6 |
-| VS-ELQ-TOBACCO | Coastal Tobacco E-Liquid | E-Liquids | variable: flavour only | 1 |
-| VS-POD-PULSE | Pulse Pod Kit | Pod Kits | variable: colour | 3 |
-| VS-POD-AERO | Aero Pod Kit | Pod Kits | simple | 0 |
+Seventeen products, all simple, all created by
+`wp-content/themes/vapestack-theme/tools/import-source-products.php` from the reviewed fixture in
+`tools/data/source-products.json`. Their names, specifications and photographs come from a public
+product listing; their prices and stock are generated.
+
+| SKU | Product | Category | Specs |
+| --- | --- | --- | --- |
+| VO-33225 | Adalya Myvo 30K | Disposable Vape | 6 |
+| VO-14592 | Adjust MyCool 40K Disposable Vape | Disposable Vape | 6 |
+| VO-33185 | Air Bar Gem 50K Disposable Vape 5% | Disposable Vape | 5 |
+| VO-13481 | Airfuze 30K Smart Disposable Vape 30000 Puffs | Disposable Vape | 5 |
+| VO-33382 | Airis Neo P40K Disposable Vape 5% | Disposable Vape | 2 |
+| VO-33028 | Vozol Salt Nic Prime E-liquid | E-Liquids | 1 |
+| VO-30316 | ADVKEN Artha Pro Pod Cartridge | Pod Cartridge | 2 |
+| VO-31529 | Aspire AVP Cube Empty Pod Cartridge | Pod Cartridge | 2 |
+| VO-25220 | Digiflavor XP Pod Tank | Pod Cartridge | 2 |
+| VO-30322 | ADVKEN Artha Pro Pod System Kit | Vape Kit | 2 |
+| VO-20183 | ANIX Steam Mars Vaporizer 3000mAh | Vape Kit | 1 |
+| VO-33087 | Arizer Go SRT Dry Herb Vaporizer | Vape Kit | 2 |
+| VO-28020 | Aspire BP Stik Pod Kit | Vape Kit | 3 |
+| VO-33089 | BD Vape Blaster Starter Kit | Vape Kit | 4 |
+| VO-33047 | Ambition Mods Emira SBS 60W Box Mod | Vape Mod | 1 |
+| VO-31563 | Aspire Deco Box Mod | Vape Mod | 1 |
+| VO-30273 | BP MODS Warhammer Single 18650 60W Box Mod | Vape Mod | 2 |
+
+The SKU is derived from the source product id rather than taken from the source, which lists no
+SKUs at all. Each product also carries `_vapestack_source_id` and `_vapestack_source_url`, and the
+first of those is what marks a product as imported — it is how `reset` finds exactly the products it
+created and nothing else.
+
+Each product's photograph is copied into this site's media library by `media_sideload_image()`, so
+`image { sourceUrl }` points at `http://localhost:8889/wp-content/uploads/...` and not at the other
+shop. The attachment carries the same two pieces of provenance and `_vapestack_source_image`, and
+`reset` deletes it with the product. No image file is committed to the storefront, so every product
+image — there is one per product, none shared — is served by WordPress.
+
+The five ranges are not registered anywhere: `getCatalogue()` derives them from the products, so they
+appear in the navigation, the shop chips and the home page by themselves. Delete the last product in
+a range and the range goes with it — which is why an empty range answers 404 rather than rendering an
+empty state.
+
+## The retired seeded catalogue
+
+`tools/seed-products.php` is kept in the repository and no longer loaded. For the record, it created
+six fictional products — Neon Rush 6000, Frost Rush 3000, Midnight Berry E-Liquid, Coastal Tobacco
+E-Liquid, Pulse Pod Kit, Aero Pod Kit — carrying 20 variations between them, which is what the
+storefront's option selectors, per-combination stock and sold-out states were built against. Running
+it with `reset` recreates all of it, images included. It is the only thing in this project that
+exercises the variation half of this contract.
 
 ## Order REST contract
 
@@ -227,5 +303,9 @@ billing block and the customer note on purpose: `GET /api/orders/<id>` is public
 unauthenticated, so anything it returns can be read by anyone who guesses an id. A variation's
 `line_items[].name` already names the option bought, e.g. `Pulse Pod Kit - Neon Lime`.
 
-Images are generated by the seed script as 1200x1200 gradient PNGs, one per option slug, into
-`wp-content/uploads/<year>/<month>/vapestack-<slug>.png`, and are reused on re-runs.
+Every product image is a photograph copied into this site's media library by the import, one per
+product and none shared, by `media_sideload_image()` — see *The catalogue* above. There is no
+committed image and no local-image map any more: those existed to serve the seeded catalogue's
+generated gradients offline, and the gradients went with it. The consequence is that with WordPress
+unreachable the shop still lists and prices every product but the images do not load. Every product
+image is rendered with `object-contain`, because the photographs are not all the same shape.

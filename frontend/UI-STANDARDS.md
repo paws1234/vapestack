@@ -177,6 +177,13 @@ the URL back to `name`, and the grid follows it).
 Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
 keyboard, is struck through, and is explained by a notice that names the working alternative.
 
+**Every product image is contained, never cropped.** The card tile, the product page's image and the
+cart line all use `object-contain` against a panel-coloured background, so the tile is a frame rather
+than a crop. The whole catalogue is imported now, and its photographs are not a uniform shape: of the
+first eleven, ten were square and fitted the tile exactly and the eleventh was 300x404, where
+`object-cover` threw away **26%** of its long edge — which on a product photograph means cutting the
+product. Nothing is cropped, so nothing has to be checked for what it cut off.
+
 ### The cart's hold is a clock, and clocks are a hydration trap
 
 The drawer holds the cart for ten minutes and says so. Three rules came out of building it, and
@@ -238,8 +245,8 @@ this project forbids.
 
 **Zero requests.** The index is built on the server from the catalogue read the layout already makes,
 and filtering it is a function call: typing six characters recorded **0** requests, and so did
-opening the dialog. A substring match over a lowercased string is enough for six products, and a
-fuzzy-matching dependency would need its own written decision.
+opening the dialog. A substring match over a lowercased string is enough for a catalogue this size,
+and a fuzzy-matching dependency would need its own written decision.
 
 ### A timeline says where it is, and the control that moves it says what it is
 

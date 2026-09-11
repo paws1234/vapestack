@@ -8,6 +8,10 @@ import type { Product } from "@/lib/wp/types";
  * statement the checkout and the footer make: this shop takes no payment and posts no parcel, so
  * the order that gets created is a record rather than a delivery.
  *
+ * The specifications section in between is for the products whose facts came in as data rather than
+ * as copy - the imported ones. It is a definition list, not the selectors `ProductDetail` renders:
+ * these are facts about the product, so there is nothing here to pick.
+ *
  * Nothing here is invented. There is no capacity, ingredient list or warranty copy, because the
  * catalogue does not hold any, and a description that reads like a real product page without
  * being one is the one thing a demo storefront must not do.
@@ -19,7 +23,8 @@ export function ProductNotes({ product }: { product: Product }) {
     <div className="mt-16 space-y-8 border-t border-ink-800 pt-10">
       {/*
         Absent rather than empty when WordPress has no short description: a heading over a blank
-        line reads as a broken page, and "no specification" is not information.
+        line reads as a broken page, and "no specification" is not information. Imported products
+        have none, which is why their page leads with specifications instead.
       */}
       {product.shortDescription ? (
         <section>
@@ -35,6 +40,20 @@ export function ProductNotes({ product }: { product: Product }) {
           />
         </section>
       ) : null}
+
+          {product.specs.length > 0 ? (
+              <section>
+                  <h2 className="text-2xl font-semibold text-ink-50">Specifications</h2>
+                  <dl className="mt-3 grid max-w-2xl gap-x-8 gap-y-3 sm:grid-cols-2">
+                      {product.specs.map((spec) => (
+                          <div key={spec.label}>
+                              <dt className="text-xs uppercase tracking-[0.2em] text-ink-400">{spec.label}</dt>
+                              <dd className="mt-1 text-ink-200">{spec.value}</dd>
+                          </div>
+                      ))}
+                  </dl>
+              </section>
+          ) : null}
 
       <section>
         <h2 className="text-2xl font-semibold text-ink-50">Shipping and payment</h2>

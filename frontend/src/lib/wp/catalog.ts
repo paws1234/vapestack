@@ -14,6 +14,7 @@ import type {
   Product,
   ProductAttribute,
   ProductImage,
+  ProductSpec,
   ProductVariation,
   StockStatus,
 } from "./types";
@@ -49,6 +50,7 @@ type RawProduct = {
   productCategories: { nodes: { name: string; slug: string }[] };
   price?: string | null;
   attributes?: { nodes: RawAttribute[] };
+  specs?: { nodes: { label: string; options: string[] }[] };
   variations?: { nodes: RawVariation[] };
 };
 
@@ -126,6 +128,23 @@ function mapVariation(raw: RawVariation, alt: string): ProductVariation {
 }
 
 /**
+ * Maps a product's specification attributes onto label/value pairs.
+ *
+ * A custom attribute's options are the values themselves rather than term slugs, so unlike
+ * `mapAttribute` there is nothing to look up.
+ *
+ * @param raw Product as returned by WordPress.
+ */
+function mapSpecs(raw: RawProduct): ProductSpec[] {
+  return (raw.specs?.nodes ?? [])
+    .map((spec) => ({
+      label: spec.label.trim(),
+      value: spec.options.join(", ").trim(),
+    }))
+    .filter((spec) => spec.label !== "" && spec.value !== "");
+}
+
+/**
  * Maps a product, deriving the price range and availability WordPress does not give us.
  *
  * A variable product's own price field is a comma-joined list of variation prices, so the
@@ -164,6 +183,7 @@ function mapProduct(raw: RawProduct): Product {
         ? "in-stock"
         : "out-of-stock"
       : toStockStatus(raw.stockStatus),
+    specs: mapSpecs(raw),
     attributes: (raw.attributes?.nodes ?? []).map(mapAttribute),
     variations,
     type: isVariable ? "variable" : "simple",

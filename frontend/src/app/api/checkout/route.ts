@@ -25,7 +25,7 @@ import { MAX_QUANTITY } from "@/stores/cart";
  */
 export const dynamic = "force-dynamic";
 
-/** Most lines one order may hold. The catalogue has six products; this is the ceiling. */
+/** Most lines one order may hold. Well above anything the catalogue makes plausible. */
 const MAX_LINES = 20;
 
 /** Longest a name, address line or city may be, so nothing absurd reaches the database. */

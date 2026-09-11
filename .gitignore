@@ -20,6 +20,10 @@ wp-content/debug.log
 # regenerated on every start, so it is never committed.
 .tunnel/
 
+# tools/fetch-source-products.mjs caches the source shop's raw API responses here, so re-running it
+# costs no requests. Derived from the committed fixture and never reviewed, so never committed.
+tools/.cache/
+
 # The Vercel CLI's link to this project, and the OIDC token it writes next to it when it links.
 # Machine-specific; the project is identified by the repository it is built from.
 .vercel/

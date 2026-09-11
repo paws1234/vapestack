@@ -46,7 +46,7 @@ internal URL can reach the browser.
 | `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
 | `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), the spend ladder (`cart-rewards.ts`), the payment sandbox (`payment-simulation.ts`: the methods, the test cards and the step machine), the order timeline's stages with their per-order storage (`order-timeline.ts`), and the search index built from the layout's catalogue read (`search-index.ts`). |
 | `src/stores/` | The persisted Zustand cart, the mobile nav's open state, and the search dialog's open state with its query. |
-| `public/products/` | The catalogue's nine product images, committed so the deployed site does not depend on WordPress being reachable. |
+| `public/` | Static assets. Product images are not among them: the catalogue is imported, and each product's photograph is served from the WordPress media library. |
 
 ## Four things worth knowing before changing this app
 

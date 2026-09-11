@@ -36,7 +36,7 @@ export function CartLine({ line }: { line: CartItem }) {
             alt={line.image.alt}
             fill
             sizes="80px"
-            className="object-cover"
+            className="object-contain"
           />
         ) : null}
       </div>

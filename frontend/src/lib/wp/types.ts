@@ -32,6 +32,17 @@ export type ProductAttribute = {
   options: ProductOption[];
 };
 
+/**
+ * One line of a product's published specifications, e.g. Battery: 1300 mAh.
+ *
+ * Facts about the product rather than choices on it: the storefront shows them as a list and never
+ * as a control.
+ */
+export type ProductSpec = {
+  label: string;
+  value: string;
+};
+
 /** A buyable combination of a variable product's attributes. */
 export type ProductVariation = {
   id: number;
@@ -61,6 +72,8 @@ export type Product = {
   stockStatus: StockStatus;
   /** Empty for simple products. */
   attributes: ProductAttribute[];
+  /** Read-only specifications, e.g. Battery: 1300 mAh. Empty when the product has none. */
+  specs: ProductSpec[];
   /** Empty for simple products. */
   variations: ProductVariation[];
   type: "simple" | "variable";

@@ -10,11 +10,13 @@ off the shop serves its last cached catalogue, the product images still load, an
 plainly that no order was created.
 
 - **Backend** — WordPress with WooCommerce 11, WPGraphQL and GraphQL for eCommerce, running in
-  Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is six products with 20
-  variations, seeded by a re-runnable script, so demo stock is predictable.
+  Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is **17 imported
+  products**: their names, factual specifications and photographs were read from a public product
+  listing, while their prices and stock are generated. The import is re-runnable, so demo stock and
+  demo prices are predictable.
 - **Storefront** — Next.js 16 (App Router), Tailwind v4 and Zustand in `frontend/`. Dark-neon
-  design system, a 21+ age gate, live flavour and nicotine-strength selectors, a cart that survives
-  a reload, and a mock checkout that creates a real `processing` WooCommerce order.
+  design system, a 21+ age gate, a cart that survives a reload, and a mock checkout that creates a
+  real `processing` WooCommerce order.
 
 ## The storefront's routes
 
@@ -37,8 +39,8 @@ rule. It is the file to read before changing anything on screen.
 | Path | What it is |
 | --- | --- |
 | `frontend/` | The Next.js storefront. Its own README covers the app itself. |
-| `wp-content/themes/vapestack-theme/` | The project's WordPress code: `tools/seed-products.php` seeds the catalogue. |
-| `tools/` | Host-side scripts: plugin install, product-image copy, tunnel. |
+| `wp-content/themes/vapestack-theme/` | The project's WordPress code: `tools/import-source-products.php` imports the fixture in `tools/data/`, and `tools/seed-products.php` is the original six-product demo catalogue, no longer loaded. |
+| `tools/` | Host-side scripts: plugin install, the source fetcher, tunnel. |
 | `docs/` | The original brief, setup notes, and the frozen GraphQL contract. |
 | `.claude/` | The plan and its task list — the record of what was built and how it was verified. |
 
@@ -47,8 +49,13 @@ rule. It is the file to read before changing anything on screen.
 ```bash
 /home/adminpaws/Desktop/dev/wp-kit/bin/wpdev up .          # WordPress on :8889
 bash tools/install-plugins.sh                              # WooCommerce, WPGraphQL, WooGraphQL
+
+# The catalogue. The fetch needs network and writes a fixture a person reviews; the import then
+# copies one product per entry, photographs included, and is safe to re-run.
+node tools/fetch-source-products.mjs
 /home/adminpaws/Desktop/dev/wp-kit/bin/wpdev wp eval-file \
-  wp-content/themes/vapestack-theme/tools/seed-products.php
+  wp-content/themes/vapestack-theme/tools/import-source-products.php
+
 /home/adminpaws/Desktop/dev/wp-kit/bin/wpdev smoke         # 10 checks through the MCP endpoint
 
 cp frontend/.env.local.example frontend/.env.local         # then fill in the credentials
@@ -68,9 +75,10 @@ reachable through a tunnel that lives as long as the development machine:
 1. **Every catalogue route is dynamic**, so the Vercel build fetches nothing from WordPress and
    cannot fail because the tunnel is down. At runtime a warm data cache keeps serving the catalogue
    when WordPress is unreachable.
-2. **The nine seeded product images are committed** under `frontend/public/products/`, so the site
-   looks complete with the tunnel down. Checkout then degrades to a demo-mode confirmation instead
-   of an error.
+2. **The product photographs are served by WordPress**, so with the tunnel down the catalogue still
+   lists and prices every product but the images do not load. They are another shop's photographs and
+   are deliberately not committed here; the alternative would be putting somebody else's pictures in
+   a public repository. Checkout necessarily degrades too, and says so.
 
 WordPress is exposed with a **cloudflared quick tunnel**, which gets a new random
 `*.trycloudflare.com` hostname every time it restarts. `tools/tunnel.sh` starts it, reads the

@@ -64,13 +64,18 @@ export default async function Home() {
             {categories.map((category) => category.name).join(" · ")}
           </span>
 
+          {/*
+            The headline was "pick a flavour, pick a strength" while the seeded catalogue's variable
+            products offered both. They were retired for an all-imported catalogue of simple
+            products, so the shop no longer has a choice to offer and the promise would be false.
+          */}
           <h1 className="text-4xl font-semibold leading-tight text-ink-50 sm:text-6xl">
-            Pick a range, pick a flavour, pick a strength.
+            Pick a range, pick a device, see the price.
           </h1>
 
           <p className="text-lg text-ink-200">
-            {products.length} products across {categories.length} ranges, every combination priced
-            and counted before it reaches the cart. For adults 21 and over.
+            {products.length} products across {categories.length} ranges, each one priced before it
+            reaches the cart. For adults 21 and over.
           </p>
 
           <div className="flex flex-wrap gap-3">

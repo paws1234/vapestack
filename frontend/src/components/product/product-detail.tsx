@@ -122,7 +122,8 @@ export function ProductDetail({ product }: { product: Product }) {
             /* This image carries the page, so it is the LCP element and must not be lazy. */
             loading="eager"
             sizes="(min-width: 1024px) 50vw, 100vw"
-            className="object-cover"
+            /* Uncropped, not cropped: see `product-card.tsx` for why the tile contains its image. */
+            className="object-contain"
           />
         ) : null}
       </div>

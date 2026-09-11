@@ -1,0 +1,479 @@
+[
+  {
+    "source_id": 33225,
+    "name": "Adalya Myvo 30K",
+    "source_slug": "adalya-myvo-30k",
+    "source_url": "https://vapeobservation.com/product/adalya-myvo-30k/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/pm-adalya-1787316859.jpg",
+    "category": {
+      "slug": "disposable-vape",
+      "name": "Disposable Vape"
+    },
+    "price_band": [
+      999,
+      1499
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Disposable Vape"
+      },
+      {
+        "label": "Puffs",
+        "value": "30000 puffs"
+      },
+      {
+        "label": "Battery",
+        "value": "1300 mAh"
+      },
+      {
+        "label": "Capacity",
+        "value": "30mL"
+      },
+      {
+        "label": "Coil Type",
+        "value": "Mesh"
+      },
+      {
+        "label": "Nicotine",
+        "value": "8 mg"
+      }
+    ]
+  },
+  {
+    "source_id": 14592,
+    "name": "Adjust MyCool 40K Disposable Vape",
+    "source_slug": "adjust-mycool-40k-disposable-vape",
+    "source_url": "https://vapeobservation.com/product/adjust-mycool-40k-disposable-vape/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/adjust-mycool-40k-main.jpg",
+    "category": {
+      "slug": "disposable-vape",
+      "name": "Disposable Vape"
+    },
+    "price_band": [
+      999,
+      1499
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Disposable Vape"
+      },
+      {
+        "label": "Puffs",
+        "value": "40,000"
+      },
+      {
+        "label": "Battery",
+        "value": "850mAh"
+      },
+      {
+        "label": "Capacity",
+        "value": "20mL"
+      },
+      {
+        "label": "Coil Type",
+        "value": "Mesh Coils"
+      },
+      {
+        "label": "Nicotine",
+        "value": "5% (50mg)"
+      }
+    ]
+  },
+  {
+    "source_id": 33185,
+    "name": "Air Bar Gem 50K Disposable Vape 5%",
+    "source_slug": "air-bar-gem-50k-disposable-vape",
+    "source_url": "https://vapeobservation.com/product/air-bar-gem-50k-disposable-vape/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/pm-air-1787316773.jpg",
+    "category": {
+      "slug": "disposable-vape",
+      "name": "Disposable Vape"
+    },
+    "price_band": [
+      999,
+      1499
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Disposable Vape"
+      },
+      {
+        "label": "Puffs",
+        "value": "50000 Puffs"
+      },
+      {
+        "label": "Battery",
+        "value": "1000mAh"
+      },
+      {
+        "label": "Coil Type",
+        "value": "Mesh"
+      },
+      {
+        "label": "Nicotine",
+        "value": "5% (50mg/mL)"
+      }
+    ]
+  },
+  {
+    "source_id": 13481,
+    "name": "Airfuze 30K Smart Disposable Vape 30000 Puffs",
+    "source_slug": "airfuze-30k-smart-disposable-vape-30000-puffs",
+    "source_url": "https://vapeobservation.com/product/airfuze-30k-smart-disposable-vape-30000-puffs/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2024/09/Airfuze-30K-Smart-Disposable-Vape-30000-Puffs-1.jpg",
+    "category": {
+      "slug": "disposable-vape",
+      "name": "Disposable Vape"
+    },
+    "price_band": [
+      999,
+      1499
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Disposable Vape"
+      },
+      {
+        "label": "Puffs",
+        "value": "30,000"
+      },
+      {
+        "label": "Battery",
+        "value": "900mAh"
+      },
+      {
+        "label": "Coil Type",
+        "value": "Dual-Mesh Coils"
+      },
+      {
+        "label": "Nicotine",
+        "value": "5% (50mg)"
+      }
+    ]
+  },
+  {
+    "source_id": 33382,
+    "name": "Airis Neo P40K Disposable Vape 5%",
+    "source_slug": "airis-neo-p40k-disposable-vape",
+    "source_url": "https://vapeobservation.com/product/airis-neo-p40k-disposable-vape/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/Airis-Neo-P40K-Disposable-Vape.jpg",
+    "category": {
+      "slug": "disposable-vape",
+      "name": "Disposable Vape"
+    },
+    "price_band": [
+      999,
+      1499
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Disposable Vape"
+      },
+      {
+        "label": "Nicotine",
+        "value": "5%"
+      }
+    ]
+  },
+  {
+    "source_id": 33028,
+    "name": "Vozol Salt Nic Prime E-liquid",
+    "source_slug": "vozol-salt-nic-prime-e-liquid",
+    "source_url": "https://vapeobservation.com/product/vozol-salt-nic-prime-e-liquid/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-26-main-6.jpg",
+    "category": {
+      "slug": "e-liquids",
+      "name": "E-Liquids"
+    },
+    "price_band": [
+      1299,
+      1999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "E-liquid"
+      }
+    ]
+  },
+  {
+    "source_id": 30316,
+    "name": "ADVKEN Artha Pro Pod Cartridge",
+    "source_slug": "advken-artha-pro-pod-cartridge",
+    "source_url": "https://vapeobservation.com/product/advken-artha-pro-pod-cartridge/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-1-main-42.jpg",
+    "category": {
+      "slug": "pod-cartridge",
+      "name": "Pod Cartridge"
+    },
+    "price_band": [
+      699,
+      1199
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Pod Cartridge"
+      },
+      {
+        "label": "Capacity",
+        "value": "3.0mL"
+      }
+    ]
+  },
+  {
+    "source_id": 31529,
+    "name": "Aspire AVP Cube Empty Pod Cartridge",
+    "source_slug": "aspire-avp-cube-empty-pod-cartridge",
+    "source_url": "https://vapeobservation.com/product/aspire-avp-cube-empty-pod-cartridge/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-9-main-22.jpg",
+    "category": {
+      "slug": "pod-cartridge",
+      "name": "Pod Cartridge"
+    },
+    "price_band": [
+      699,
+      1199
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Pod Cartridge"
+      },
+      {
+        "label": "Capacity",
+        "value": "3.5mL"
+      }
+    ]
+  },
+  {
+    "source_id": 25220,
+    "name": "Digiflavor XP Pod Tank",
+    "source_slug": "digiflavor-xp-pod-tank",
+    "source_url": "https://vapeobservation.com/product/digiflavor-xp-pod-tank/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-83-main.jpg",
+    "category": {
+      "slug": "pod-cartridge",
+      "name": "Pod Cartridge"
+    },
+    "price_band": [
+      699,
+      1199
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Pod Cartridge"
+      },
+      {
+        "label": "Capacity",
+        "value": "4.5mL"
+      }
+    ]
+  },
+  {
+    "source_id": 30322,
+    "name": "ADVKEN Artha Pro Pod System Kit",
+    "source_slug": "advken-artha-pro-pod-system-kit",
+    "source_url": "https://vapeobservation.com/product/advken-artha-pro-pod-system-kit/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-2-main-38.jpg",
+    "category": {
+      "slug": "vape-kit",
+      "name": "Vape Kit"
+    },
+    "price_band": [
+      2499,
+      3999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Pod System"
+      },
+      {
+        "label": "Battery",
+        "value": "1500mAh"
+      }
+    ]
+  },
+  {
+    "source_id": 20183,
+    "name": "ANIX Steam Mars Vaporizer 3000mAh",
+    "source_slug": "anix-steam-mars-vaporizer-3000mah",
+    "source_url": "https://vapeobservation.com/product/anix-steam-mars-vaporizer-3000mah/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/01/anix-steam-mars-vaporizer-3000mah.jpg",
+    "category": {
+      "slug": "vape-kit",
+      "name": "Vape Kit"
+    },
+    "price_band": [
+      2499,
+      3999
+    ],
+    "specs": [
+      {
+        "label": "Capacity",
+        "value": "3000mAh lithium-ion battery"
+      }
+    ]
+  },
+  {
+    "source_id": 33087,
+    "name": "Arizer Go SRT Dry Herb Vaporizer",
+    "source_slug": "arizer-go-srt-dry-herb-vaporizer",
+    "source_url": "https://vapeobservation.com/product/arizer-go-srt-dry-herb-vaporizer/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/pm-arizer-1787313573.jpg",
+    "category": {
+      "slug": "vape-kit",
+      "name": "Vape Kit"
+    },
+    "price_band": [
+      2499,
+      3999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Vape Pen"
+      },
+      {
+        "label": "Battery",
+        "value": "Single 21700"
+      }
+    ]
+  },
+  {
+    "source_id": 28020,
+    "name": "Aspire BP Stik Pod Kit",
+    "source_slug": "aspire-bp-stik-pod-kit",
+    "source_url": "https://vapeobservation.com/product/aspire-bp-stik-pod-kit/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/aspire-aspire-bp-stik-2500-mah-main.webp",
+    "category": {
+      "slug": "vape-kit",
+      "name": "Vape Kit"
+    },
+    "price_band": [
+      2499,
+      3999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Pod System Kit"
+      },
+      {
+        "label": "Battery",
+        "value": "2500mAh"
+      },
+      {
+        "label": "Capacity",
+        "value": "6mL"
+      }
+    ]
+  },
+  {
+    "source_id": 33089,
+    "name": "BD Vape Blaster Starter Kit",
+    "source_slug": "bd-vape-blaster-starter-kit",
+    "source_url": "https://vapeobservation.com/product/bd-vape-blaster-starter-kit/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/pm-bd-vape-1787313582.jpg",
+    "category": {
+      "slug": "vape-kit",
+      "name": "Vape Kit"
+    },
+    "price_band": [
+      2499,
+      3999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Box Mod Kit"
+      },
+      {
+        "label": "Battery",
+        "value": "Optional 18650 Battery Adapters"
+      },
+      {
+        "label": "Capacity",
+        "value": "4.5mL, Optional 2mL Glass"
+      },
+      {
+        "label": "Coil Type",
+        "value": "Press-Fit"
+      }
+    ]
+  },
+  {
+    "source_id": 33047,
+    "name": "Ambition Mods Emira SBS 60W Box Mod",
+    "source_slug": "ambition-mods-emira-sbs-60w-box-mod",
+    "source_url": "https://vapeobservation.com/product/ambition-mods-emira-sbs-60w-box-mod/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/pm-ambition-mods-1787312559.jpg",
+    "category": {
+      "slug": "vape-mod",
+      "name": "Vape Mod"
+    },
+    "price_band": [
+      3499,
+      5999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Box Mod"
+      }
+    ]
+  },
+  {
+    "source_id": 31563,
+    "name": "Aspire Deco Box Mod",
+    "source_slug": "aspire-deco-box-mod",
+    "source_url": "https://vapeobservation.com/product/aspire-deco-box-mod/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-8-main-26.jpg",
+    "category": {
+      "slug": "vape-mod",
+      "name": "Vape Mod"
+    },
+    "price_band": [
+      3499,
+      5999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Box Mod"
+      }
+    ]
+  },
+  {
+    "source_id": 30273,
+    "name": "BP MODS Warhammer Single 18650 60W Box Mod",
+    "source_slug": "bp-mods-warhammer-single-18650-60w-box-mod",
+    "source_url": "https://vapeobservation.com/product/bp-mods-warhammer-single-18650-60w-box-mod/",
+    "image": "https://vapeobservation.com/wp-content/uploads/2026/08/vwg-1-main-41.jpg",
+    "category": {
+      "slug": "vape-mod",
+      "name": "Vape Mod"
+    },
+    "price_band": [
+      3499,
+      5999
+    ],
+    "specs": [
+      {
+        "label": "Device Type",
+        "value": "Box Mod"
+      },
+      {
+        "label": "Battery",
+        "value": "1 * 18650 (not included)"
+      }
+    ]
+  }
+]

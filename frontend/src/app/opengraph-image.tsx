@@ -50,7 +50,7 @@ export default function OpengraphImage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1.05, maxWidth: 900 }}>
-            Devices, liquids and pods, in three ranges.
+                      Devices, liquids and pods.
           </div>
           <div style={{ fontSize: 32, color: "#c9cfdb" }}>
             A headless storefront demo — Next.js in front, WooCommerce behind.

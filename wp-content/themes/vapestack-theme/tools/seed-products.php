@@ -35,18 +35,15 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 final class Vapestack_Seed_Products {
 
 	/**
-	 * Accent colours the generated product images are drawn from, as RGB triples.
+	 * Saturation and value every generated product image is drawn at.
 	 *
-	 * @var array<int, array<int, int>>
+	 * Fixed rather than per-image: the accent's *hue* is what tells one product from another, and
+	 * these two numbers are what keep all of them in the same vivid family as the rest of the design.
 	 */
-	private const PALETTE = array(
-		array( 163, 255, 18 ),  // acid lime
-		array( 0, 229, 255 ),   // electric cyan
-		array( 255, 45, 149 ),  // hot magenta
-		array( 255, 138, 0 ),   // burnt orange
-		array( 154, 92, 255 ),  // violet
-		array( 0, 255, 178 ),   // mint teal
-	);
+	private const ACCENT_SATURATION = 0.85;
+
+	/** @see ACCENT_SATURATION */
+	private const ACCENT_VALUE = 1.0;
 
 	/**
 	 * Product categories, keyed by slug.
@@ -120,7 +117,7 @@ final class Vapestack_Seed_Products {
 		$skipped = 0;
 		$lines   = array();
 
-		foreach ( $products as $product ) {
+		foreach ( $products as $catalogue_index => $product ) {
 			if ( 0 !== wc_get_product_id_by_sku( $product['sku'] ) ) {
 				++$skipped;
 				$lines[] = sprintf( 'skip    %s (%s already exists)', $product['sku'], $product['name'] );
@@ -130,8 +127,8 @@ final class Vapestack_Seed_Products {
 			$category_id = $categories[ $product['category'] ];
 
 			$product_id = 'simple' === $product['type']
-				? self::create_simple_product( $product, $category_id )
-				: self::create_variable_product( $product, $category_id, $attributes );
+				? self::create_simple_product( $product, $category_id, $catalogue_index )
+				: self::create_variable_product( $product, $category_id, $attributes, $catalogue_index );
 
 			if ( 0 === $product_id ) {
 				WP_CLI::warning( 'Could not create ' . $product['sku'] );
@@ -283,9 +280,10 @@ final class Vapestack_Seed_Products {
 	 *
 	 * @param array<string, mixed> $spec        Product definition.
 	 * @param int                  $category_id Product category term id.
+	 * @param int                  $catalogue_index Position of the product in the catalogue.
 	 * @return int The new product id, or 0 on failure.
 	 */
-	private static function create_simple_product( array $spec, int $category_id ): int {
+	private static function create_simple_product( array $spec, int $category_id, int $catalogue_index ): int {
 		$product = new WC_Product_Simple();
 
 		$product->set_name( $spec['name'] );
@@ -300,7 +298,13 @@ final class Vapestack_Seed_Products {
 		$product->set_manage_stock( true );
 		$product->set_stock_quantity( $spec['stock'] );
 		$product->set_stock_status( 0 < $spec['stock'] ? 'instock' : 'outofstock' );
-		$product->set_image_id( self::ensure_image( $spec['image'], self::option_label( $spec['image'] ) ) );
+		$product->set_image_id(
+			self::ensure_image(
+				self::image_key( $spec['slug'], $spec['image'] ),
+				self::image_label( $spec['name'], $spec['image'] ),
+				self::image_hue( $catalogue_index, 0, 1 )
+			)
+		);
 
 		$product_id = $product->save();
 
@@ -317,9 +321,10 @@ final class Vapestack_Seed_Products {
 	 * @param array<string, mixed>  $spec        Product definition.
 	 * @param int                   $category_id Product category term id.
 	 * @param array<string, string> $attributes  Attribute slug mapped to taxonomy name.
+	 * @param int                   $catalogue_index Position of the product in the catalogue.
 	 * @return int The new product id, or 0 on failure.
 	 */
-	private static function create_variable_product( array $spec, int $category_id, array $attributes ): int {
+	private static function create_variable_product( array $spec, int $category_id, array $attributes, int $catalogue_index ): int {
 		$product = new WC_Product_Variable();
 		$product->set_name( $spec['name'] );
 		$product->set_sku( $spec['sku'] );
@@ -363,7 +368,17 @@ final class Vapestack_Seed_Products {
 
 		// The parent holds no stock of its own; each variation carries its own quantity.
 		$product->set_manage_stock( false );
-		$product->set_image_id( self::ensure_image( $spec['options'][ $spec['attributes'][0] ][0], self::option_label( $spec['options'][ $spec['attributes'][0] ][0] ) ) );
+
+		$first_option = $spec['options'][ $spec['attributes'][0] ][0];
+		$option_slugs = $spec['options'][ $spec['attributes'][0] ];
+
+		$product->set_image_id(
+			self::ensure_image(
+				self::image_key( $spec['slug'], $first_option ),
+				self::image_label( $spec['name'], $first_option ),
+				self::image_hue( $catalogue_index, 0, count( $option_slugs ) )
+			)
+		);
 
 		$product_id = (int) $product->save();
 
@@ -374,8 +389,14 @@ final class Vapestack_Seed_Products {
 		foreach ( $spec['variations'] as $variation_spec ) {
 			$variation_attributes = array();
 
-			foreach ( $spec['attributes'] as $index => $attribute_slug ) {
-				$variation_attributes[ $attributes[ $attribute_slug ] ] = $variation_spec['options'][ $index ];
+			/*
+			 * `$attribute_index`, not `$index`: that name is the product's position in the catalogue,
+			 * and shadowing it here is what made two of Neon Rush's flavours come out the colour of Frost
+			 * Rush. The parameter is `$catalogue_index` and this loop keeps its own name for the same
+			 * reason.
+			 */
+			foreach ( $spec['attributes'] as $attribute_index => $attribute_slug ) {
+				$variation_attributes[ $attributes[ $attribute_slug ] ] = $variation_spec['options'][ $attribute_index ];
 			}
 
 			$variation = new WC_Product_Variation();
@@ -387,7 +408,17 @@ final class Vapestack_Seed_Products {
 			$variation->set_manage_stock( true );
 			$variation->set_stock_quantity( $variation_spec['stock'] );
 			$variation->set_stock_status( 0 < $variation_spec['stock'] ? 'instock' : 'outofstock' );
-			$variation->set_image_id( self::ensure_image( $variation_spec['options'][0], self::option_label( $variation_spec['options'][0] ) ) );
+
+			$variation_option = $variation_spec['options'][0];
+			$option_position = (int) array_search( $variation_option, $option_slugs, true );
+
+			$variation->set_image_id(
+				self::ensure_image(
+					self::image_key( $spec['slug'], $variation_option ),
+					self::image_label( $spec['name'], $variation_option ),
+					self::image_hue( $catalogue_index, $option_position, count( $option_slugs ) )
+				)
+			);
 			$variation->save();
 		}
 
@@ -399,15 +430,47 @@ final class Vapestack_Seed_Products {
 	}
 
 	/**
+	 * The key one generated image belongs to: the product *and* the option.
+	 *
+	 * Keying on the option alone, as this did first, made one file do for several products: Neon Rush
+	 * 6000 and Midnight Berry E-Liquid were both drawn from `vapestack-blue-razz-ice.png`, so two
+	 * different products showed the same picture. Every product now owns its own file for each of its
+	 * options, and the variants of one product still share theirs, because they are the same device in
+	 * the same finish.
+	 *
+	 * @param string $product_slug Product slug, e.g. `neon-rush-6000`.
+	 * @param string $option_slug  Option slug, e.g. `blue-razz-ice`.
+	 * @return string Image key, e.g. `neon-rush-6000-blue-razz-ice`.
+	 */
+	private static function image_key( string $product_slug, string $option_slug ): string {
+		return $product_slug . '-' . $option_slug;
+	}
+
+	/**
+	 * Attachment title and alt text for one generated image.
+	 *
+	 * Names the product as well as the finish, because the file belongs to one product now and "Blue
+	 * Razz Ice" alone would describe two of them.
+	 *
+	 * @param string $product_name Product name, e.g. `Neon Rush 6000`.
+	 * @param string $option_slug  Option slug, e.g. `blue-razz-ice`.
+	 * @return string Alt text, e.g. `Neon Rush 6000 - Blue Razz Ice`.
+	 */
+	private static function image_label( string $product_name, string $option_slug ): string {
+		return $product_name . ' - ' . self::option_label( $option_slug );
+	}
+
+	/**
 	 * Generates a product image on first use and returns its attachment id afterwards.
 	 *
-	 * @param string $slug  Option slug the image belongs to, e.g. `frost-mint`.
+	 * @param string $key   Image key the file belongs to, e.g. `neon-rush-6000-blue-razz-ice`.
 	 * @param string $label Attachment title and alt text.
+	 * @param int    $hue   Hue to draw the accent at, in degrees.
 	 * @return int Attachment id, or 0 when the image could not be written.
 	 */
-	private static function ensure_image( string $slug, string $label ): int {
+	private static function ensure_image( string $key, string $label, int $hue ): int {
 		$uploads  = wp_upload_dir();
-		$filename = 'vapestack-' . $slug . '.png';
+		$filename = 'vapestack-' . $key . '.png';
 		$path     = trailingslashit( $uploads['path'] ) . $filename;
 		$url      = trailingslashit( $uploads['url'] ) . $filename;
 
@@ -415,9 +478,9 @@ final class Vapestack_Seed_Products {
 
 		if ( 0 !== $existing ) {
 			/*
-			 * One image is generated per option, so several products share it and the first of
-			 * them to be seeded is not necessarily the one it should describe. Correct the alt
-			 * text on sight rather than leaving the media library claiming the wrong product.
+			 * A file belongs to one product and one option, so the alt text written on the way in is the
+			 * right one. Repair it on sight anyway: it is one comparison, and a media library that
+			 * describes the wrong product is worse than one extra query.
 			 */
 			if ( get_post_meta( $existing, '_wp_attachment_image_alt', true ) !== $label ) {
 				update_post_meta( $existing, '_wp_attachment_image_alt', $label );
@@ -432,7 +495,7 @@ final class Vapestack_Seed_Products {
 			return $existing;
 		}
 
-		if ( ! self::write_gradient_png( $path, self::accent_colour( $slug ) ) ) {
+		if ( ! self::write_gradient_png( $path, self::hsv_to_rgb( $hue, self::ACCENT_SATURATION, self::ACCENT_VALUE ) ) ) {
 			WP_CLI::warning( 'Could not write ' . $path . ' (is GD available?)' );
 			return 0;
 		}
@@ -477,13 +540,72 @@ final class Vapestack_Seed_Products {
 	}
 
 	/**
-	 * Picks a stable accent colour for a slug.
+	 * The hue one generated image is drawn at.
 	 *
-	 * @param string $slug Option slug.
-	 * @return array<int, int> RGB triple.
+	 * **Positional, not hashed.** Hashing the key into 360 degrees was the first attempt and it
+	 * measured badly: with twelve keys the closest pair came out **3 RGB units apart** — two
+	 * different products showing what looks like the same picture, which is the thing the per-product
+	 * key exists to prevent. Tuning the hash did not fix it either (the best of eleven variants left
+	 * a 10° gap, i.e. two of Neon Rush's own flavours sharing a colour).
+	 *
+	 * So the catalogue's own order does the work: each product takes a 60° band, and its options are
+	 * spread inside that band. Six products with at most three options each leaves every one of the
+	 * twelve images at least **20°** from every other, which is a difference you can see.
+	 *
+	 * @param int $product_index Position of the product in the catalogue, from zero.
+	 * @param int $option_index  Position of the option within the product, from zero.
+	 * @param int $option_count  How many options the product offers on this attribute.
+	 * @return int Hue in degrees, 0-359.
 	 */
-	private static function accent_colour( string $slug ): array {
-		return self::PALETTE[ crc32( $slug ) % count( self::PALETTE ) ];
+	private static function image_hue( int $product_index, int $option_index, int $option_count ): int {
+		$band   = 60;
+		$spread = 40;
+
+		$offset = $option_count > 1
+			? (int) round( ( $option_index - ( $option_count - 1 ) / 2 ) * ( $spread / ( $option_count - 1 ) ) )
+			: 0;
+
+		return ( ( $product_index * $band ) + $offset + 360 ) % 360;
+	}
+
+	/**
+	 * Converts a hue, saturation and value into an RGB triple.
+	 *
+	 * @param int   $hue        Hue in degrees, 0-359.
+	 * @param float $saturation Saturation, 0-1.
+	 * @param float $value      Value, 0-1.
+	 * @return array<int, int> RGB triple, each 0-255.
+	 */
+	private static function hsv_to_rgb( int $hue, float $saturation, float $value ): array {
+		$chroma = $value * $saturation;
+		$second = $chroma * ( 1 - abs( fmod( $hue / 60, 2 ) - 1 ) );
+		$floor  = $value - $chroma;
+
+		switch ( (int) floor( $hue / 60 ) % 6 ) {
+			case 0:
+				$rgb = array( $chroma, $second, 0 );
+				break;
+			case 1:
+				$rgb = array( $second, $chroma, 0 );
+				break;
+			case 2:
+				$rgb = array( 0, $chroma, $second );
+				break;
+			case 3:
+				$rgb = array( 0, $second, $chroma );
+				break;
+			case 4:
+				$rgb = array( $second, 0, $chroma );
+				break;
+			default:
+				$rgb = array( $chroma, 0, $second );
+		}
+
+		return array(
+			(int) round( ( $rgb[0] + $floor ) * 255 ),
+			(int) round( ( $rgb[1] + $floor ) * 255 ),
+			(int) round( ( $rgb[2] + $floor ) * 255 ),
+		);
 	}
 
 	/**

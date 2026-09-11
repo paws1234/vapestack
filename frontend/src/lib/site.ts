@@ -28,10 +28,10 @@ export function siteUrl(): string {
 /**
  * Turns a route or an asset path into an absolute URL.
  *
- * Anything that already carries a scheme is returned untouched. That guard is not decoration:
- * a catalogue image can be either a committed local copy under `public/products/` (a bare
- * `/products/...` path) or a WordPress upload on another origin, and both have to survive this
- * function. Prefixing the second kind would produce a URL with two schemes in it.
+ * Anything that already carries a scheme is returned untouched. That guard is not decoration: a
+ * route here is a bare path (`/shop`) while a product image arrives from WordPress as an absolute
+ * URL on its own origin, and both have to survive this function. Prefixing the second kind would
+ * produce a URL with two schemes in it.
  *
  * @param path Route or asset path within the site, with or without a leading slash.
  */

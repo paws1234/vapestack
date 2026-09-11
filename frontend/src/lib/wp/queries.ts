@@ -42,6 +42,17 @@ const PRODUCT_FIELDS = `
     ... on SimpleProduct {
       sku
       price(format: RAW)
+      # A simple product carries its published specifications as custom, non-taxonomy attributes,
+      # where label is the human name and options hold the values themselves - unlike a global
+      # attribute, whose options are term slugs to look up. Aliased away from the attributes field,
+      # which is what the variation selectors are built from, so a read-only spec list and a set of
+      # choices can never be confused for one another.
+      specs: attributes {
+        nodes {
+          label
+          options
+        }
+      }
     }
     ... on VariableProduct {
       sku

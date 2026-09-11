@@ -39,7 +39,10 @@ export function ProductCard({ product, eager = false }: { product: Product; eage
             fill
             loading={eager ? "eager" : "lazy"}
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover transition duration-500 motion-reduce:duration-0 motion-safe:group-hover:scale-105"
+            /* The tile is a frame, not a crop. The imported catalogue's photographs are not all
+               square, and cutting a quarter off a product to fill a tile is worse than letterboxing
+               it against the panel colour. */
+            className="object-contain transition duration-500 motion-reduce:duration-0 motion-safe:group-hover:scale-105"
           />
         ) : null}
 
