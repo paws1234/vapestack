@@ -5,6 +5,7 @@
  * component ever sees them and no credential or internal URL reaches the browser.
  */
 
+import { cache } from "react";
 import { wpQuery } from "./graphql";
 import { publicUrl } from "./publicUrl";
 import { CATALOGUE_QUERY } from "./queries";
@@ -171,14 +172,19 @@ function mapProduct(raw: RawProduct): Product {
  * Reads the whole catalogue, sorted by name.
  *
  * WordPress does not guarantee an order, so sorting happens here rather than in each page.
+ *
+ * `cache()` is per-request memoisation, not a longer-lived cache — the five-minute `revalidate`
+ * in `graphql.ts` is what does that. It matters because `getCatalogue()` below reads the products
+ * twice at once (`getCategories()` reads them too), so without this a single page render sends two
+ * identical GraphQL requests.
  */
-export async function getProducts(): Promise<Product[]> {
+export const getProducts = cache(async (): Promise<Product[]> => {
   const data = await wpQuery<CatalogueData>(CATALOGUE_QUERY);
 
   return data.products.nodes
     .map(mapProduct)
     .sort((a, b) => a.name.localeCompare(b.name));
-}
+});
 
 /**
  * Finds one product by its slug.
@@ -196,7 +202,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 /** Lists the categories the catalogue actually uses, with product counts. */
-export async function getCategories(): Promise<Category[]> {
+export const getCategories = cache(async (): Promise<Category[]> => {
   const products = await getProducts();
   const categories = new Map<string, Category>();
 
@@ -215,7 +221,7 @@ export async function getCategories(): Promise<Category[]> {
   }
 
   return [...categories.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
+});
 
 /** Everything a listing page needs, in one read. */
 export type Catalogue = {
@@ -226,12 +232,17 @@ export type Catalogue = {
 /**
  * Reads the catalogue, or answers null when WordPress cannot be reached at all.
  *
+ * Wrapped in `cache()` because it now has three readers in one render — the header's navigation,
+ * the footer's shop column and the page itself — and each of them should not be a separate trip
+ * to WordPress. The `null` contract below is unchanged by that, and callers still have to handle
+ * it: WordPress is reached through a tunnel, and a closed tunnel is an expected state.
+ *
  * The deployed demo reaches WordPress through a cloudflared tunnel that is only open while the
  * development machine is running, so "WordPress is not there" is an expected state rather than a
  * fault, and the pages answer it with an offline notice. A GraphQL error is still thrown: that
  * means the query or the catalogue is wrong, which is not something to paper over with a notice.
  */
-export async function getCatalogue(): Promise<Catalogue | null> {
+export const getCatalogue = cache(async (): Promise<Catalogue | null> => {
   try {
     const [categories, products] = await Promise.all([getCategories(), getProducts()]);
 
@@ -243,4 +254,4 @@ export async function getCatalogue(): Promise<Catalogue | null> {
 
     throw error;
   }
-}
+});

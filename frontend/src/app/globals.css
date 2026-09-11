@@ -2,7 +2,7 @@
 
 /*
  * Design tokens. Tailwind v4 turns each of these into utilities, so `bg-ink-950`,
- * `text-neon-400` and `border-ink-700` all exist without a config file.
+ * `text-neon-400` and `border-line` all exist without a config file.
  */
 @theme {
   /* Surfaces and text, darkest first. */
@@ -14,6 +14,20 @@
   --color-ink-200: #c9cfdb;
   --color-ink-50: #f5f7fb;
 
+  /*
+       * The boundary of anything interactive, and nothing else.
+       *
+       * Measured in the browser, `ink-700` above is 1.21:1 on ink-900 and 1.25:1 on ink-950, and
+       * WCAG 1.4.11 asks 3:1 for the boundary that identifies a control — which made the outline
+       * button, every input, the select and every card-as-link invisible. This token measures
+       * 3.28:1 on ink-900 and 3.38:1 on ink-950. It is a new token rather than a change to
+       * `ink-700`, because that one is also the panel and divider colour, where 3:1 would be noise.
+       * Re-measure before changing it; the numbers are in `frontend/UI-STANDARDS.md`.
+       */
+    --color-line: #5b6478;
+  
+    /* Failure text and its rule. 7:1 on both ink-900 and ink-950. */
+    --color-danger: #ff6b6b;
   /* Lime for actions, volt for highlights. */
   --color-neon-300: #d4ff7a;
   --color-neon-400: #b6ff3d;

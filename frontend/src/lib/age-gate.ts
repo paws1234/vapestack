@@ -44,3 +44,20 @@ export function rememberAgeGateAnswer(): void {
     /* Storage can be unavailable; the visitor is asked again next time and nothing breaks. */
   }
 }
+
+/**
+ * Forgets a confirmation, so the gate asks again.
+ *
+ * Clearing the key is not on its own enough to bring the gate back: it is hidden by an unlayered
+ * rule keyed off `data-age-gate="off"` on `<html>`, which `AGE_GATE_SCRIPT` set during the current
+ * page load. The caller has to remove that attribute too — see `components/layout/age-gate-reset.tsx`,
+ * which does that and reloads rather than threading a second store through the gate for a control
+ * used once in a visit.
+ */
+export function forgetAgeGateAnswer(): void {
+  try {
+    window.localStorage.removeItem(AGE_GATE_STORAGE_KEY);
+  } catch {
+    /* Storage can be unavailable, in which case there is nothing stored to forget. */
+  }
+}

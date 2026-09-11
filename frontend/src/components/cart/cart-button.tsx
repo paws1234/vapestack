@@ -2,6 +2,7 @@
 
 import { buttonStyles } from "@/components/ui/button";
 import { cartCount, useCartStore } from "@/stores/cart";
+import { useNavStore } from "@/stores/nav";
 
 /**
  * Opens the drawer, and says how much is in it.
@@ -20,7 +21,15 @@ export function CartButton() {
   return (
     <button
       type="button"
-      onClick={open}
+      /*
+        The drawer and the mobile nav both cover the screen, so opening one closes the other.
+        Leaving a hidden panel open underneath would leave the page scroll-locked with nothing
+        visible to explain why.
+      */
+      onClick={() => {
+        useNavStore.getState().close();
+        open();
+      }}
       className={buttonStyles("outline", "sm")}
       aria-label={0 === count ? "Cart, empty" : `Cart, ${count} ${1 === count ? "item" : "items"}`}
     >

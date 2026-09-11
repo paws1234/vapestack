@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
+import { Container } from "@/components/ui/container";
 
 export const metadata: Metadata = {
   title: "Checkout",
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
  */
 export default function CheckoutPage() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
+    <Container width="narrow" className="py-10">
       <h1 className="text-3xl font-semibold text-ink-50 sm:text-4xl">Checkout</h1>
       <p className="mt-2 max-w-2xl text-ink-200">
         This creates a real order in WooCommerce, so it can be read back with{" "}
@@ -27,6 +28,6 @@ export default function CheckoutPage() {
       <div className="mt-10">
         <CheckoutForm />
       </div>
-    </div>
+    </Container>
   );
 }

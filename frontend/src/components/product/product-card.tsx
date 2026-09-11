@@ -15,7 +15,7 @@ export function ProductCard({ product, eager = false }: { product: Product; eage
   return (
     <Link
       href={`/product/${product.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-ink-700 bg-ink-900 transition hover:border-neon-400/60"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-ink-900 transition hover:border-neon-400/60"
     >
       <div className="relative aspect-square bg-ink-800">
         {product.image ? (

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { ProductDetail } from "@/components/product/product-detail";
+import { Container } from "@/components/ui/container";
 import { getProductBySlug } from "@/lib/wp/catalog";
 import type { Product } from "@/lib/wp/types";
 import { UpstreamUnavailableError } from "@/lib/wp/upstream";
@@ -95,7 +96,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+    <Container className="py-10">
       {product.category ? (
         <Link
           href={`/shop/${product.category.slug}`}
@@ -106,6 +107,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
       ) : null}
 
       <ProductDetail product={product} />
-    </div>
+    </Container>
   );
 }

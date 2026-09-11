@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buttonStyles } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
 
 /**
  * What a page shows when WordPress cannot be reached at all.
@@ -12,7 +13,7 @@ import { buttonStyles } from "@/components/ui/button";
  */
 export function OfflineNotice({ what = "catalogue" }: { what?: string }) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-16 sm:px-8">
+      <Container width="narrow" className="py-16">
       <div className="rounded-3xl border border-ink-700 bg-ink-900 p-8 sm:p-10">
         <p className="text-xs uppercase tracking-[0.25em] text-neon-400">Demo shop offline</p>
         <h1 className="mt-3 text-2xl font-semibold text-ink-50 sm:text-3xl">
@@ -32,6 +33,6 @@ export function OfflineNotice({ what = "catalogue" }: { what?: string }) {
           Back to the home page
         </Link>
       </div>
-    </div>
+      </Container>
   );
 }

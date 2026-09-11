@@ -7,10 +7,10 @@ import { MAX_QUANTITY, useCartStore, type CartItem } from "@/stores/cart";
 
 /** How one quantity button looks, disabled state included. */
 const STEP_CLASSES = [
-  "inline-flex size-7 items-center justify-center rounded-full border border-ink-700",
+  "inline-flex size-7 items-center justify-center rounded-full border border-line",
   "text-ink-200 transition hover:border-neon-400 hover:text-neon-400",
   "disabled:cursor-not-allowed disabled:opacity-40",
-  "disabled:hover:border-ink-700 disabled:hover:text-ink-200",
+  "disabled:hover:border-line disabled:hover:text-ink-200",
 ].join(" ");
 
 /**

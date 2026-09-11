@@ -3,7 +3,7 @@ import type { Category } from "@/lib/wp/types";
 
 const BASE = "rounded-full border px-4 py-2 text-sm transition";
 const SELECTED = `${BASE} border-neon-400 bg-neon-400/10 text-neon-400`;
-const UNSELECTED = `${BASE} border-ink-700 text-ink-200 hover:border-neon-400/60 hover:text-neon-400`;
+const UNSELECTED = `${BASE} border-line text-ink-200 hover:border-neon-400/60 hover:text-neon-400`;
 
 /**
  * Range filter, as links rather than client state so a filtered shop is a real URL.

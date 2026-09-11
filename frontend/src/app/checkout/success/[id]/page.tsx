@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DemoOrderSummary } from "@/components/checkout/demo-order-summary";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { buttonStyles } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
 import { Price } from "@/components/ui/price";
 import { getOrderSummary } from "@/lib/wp/rest";
 import type { OrderSummary } from "@/lib/wp/types";
@@ -83,7 +84,7 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
+    <Container width="narrow" className="py-10">
       <p className="text-sm font-medium text-neon-400">Order {order.number}</p>
       <h1 className="mt-2 text-3xl font-semibold text-ink-50 sm:text-4xl">Order placed</h1>
       <p className="mt-2 text-ink-200">
@@ -115,6 +116,6 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
           Home
         </Link>
       </div>
-    </div>
+    </Container>
   );
 }

@@ -1,0 +1,1060 @@
+# Tasks: Vapestack storefront — UI/UX enhancement
+
+From `docs/ui-ux-plan.md`, written 2026-09-11.
+
+Any single task can be run on its own in a fresh session by asking for it by id, for example:
+`do T5 of docs/ui-ux-tasks.md`. Each task carries the context it needs, what it may touch, what
+proves it, and how it is verified — so a session needs this file and the repository, nothing else.
+
+This is the second pass over this project. `.claude/tasks.md` holds T1–T19 (backend, data layer,
+cart, checkout, deploy) and is **finished**; nothing here edits it, and nothing here touches PHP.
+
+## How to run a task
+
+1. Invoke one task by id in a fresh session if you like. The task carries its own Goal, Context to
+   load, In scope / Out of scope, Acceptance criteria and Verify.
+2. Load only that task's **Context to load** — a handful of files, never the whole repo — make the
+   change, then run its **Verify**.
+3. Tick that task's checkbox and add a `> verified:` line underneath with the command and the
+   observed result. That line is the record the next session reads; there is no separate status
+   document.
+4. Report, then take the next unticked task in order, unless a task names something under
+   **Parallel with**.
+5. If a task turns out to be wrong or impossible, stop and correct this file rather than quietly
+   substituting different work.
+6. **Never report a visual change from a screenshot taken before the last edit**, and never reuse a
+   browser page opened in an earlier session — it may be holding a render from before the change.
+   Re-navigate and re-shoot after every edit.
+
+## Where context comes from
+
+- `docs/ui-ux-plan.md` — the source plan: Goal, Steps, Constraints / Out of scope, Done when, and
+  the eleven audit findings that justify every task here.
+- `frontend/UI-STANDARDS.md` — **written by T1**, and the context file for every task from T2 on:
+  measured contrast table, type and spacing rhythm, state rules, a11y checklist, reduced-motion
+  rule, breakpoint contract, and the Tailwind v4 traps.
+- `frontend/README.md` — the app's own rules. Two of them bind every task: every route is
+  `force-dynamic` on purpose, and WordPress being unreachable is an expected state rather than an
+  error.
+- `frontend/src/lib/wp/catalog.ts` — `getCatalogue()` answers `null` when WordPress is away.
+  Anything reading the catalogue must handle that.
+- Skill `visual-testing` (`/home/adminpaws/.agents/skills/visual-testing/SKILL.md`) — read it
+  before any task whose Verify takes a screenshot.
+- Skill `wordpress-best-practices` (`/home/adminpaws/.agents/skills/wordpress-best-practices/SKILL.md`)
+  — its "evidence over assertion" section applies to every task here, even though no task writes
+  PHP.
+
+### Shared commands
+
+```bash
+WPDEV=/home/adminpaws/Desktop/dev/wp-kit/bin/wpdev
+PORT=3000                # check before assuming: next dev falls back to 3001
+
+$WPDEV status                                        # is WordPress up?  (frontend needs it for a catalogue)
+ss -ltn | grep -E ':300[01]'                         # is a dev server already listening?
+env -C frontend npm run dev                           # if not
+env -C frontend npm run build && env -C frontend npx tsc --noEmit && env -C frontend npm run lint
+```
+
+A `next dev` server **outlives the terminal that started it**, so killing a terminal is not a
+restart. After a production build, `rm -rf frontend/.next` is what clears a stale prerender.
+
+### Shared screenshot recipe
+
+The VS Code browser pane cannot be resized past its own width — it silently pads the canvas, so a
+"1440px" shot taken there is a 306px layout in a wide frame. Use the Playwright-bundled Chromium,
+which lays out at the real width:
+
+```bash
+CHROME=$(ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | tail -1)
+mkdir -p /tmp/ui
+"$CHROME" --headless=new --window-size=1440,900 --hide-scrollbars \
+  --screenshot=/tmp/ui/<page>-1440.png "http://localhost:$PORT/<route>"
+file /tmp/ui/<page>-1440.png      # must say 1440x900, not the pane width
+```
+
+Repeat at `768,1024` and `390,844`. Confirm each PNG's real dimensions with `file` before
+believing it, and measure where content actually ends before drawing a conclusion from a wide one.
+
+## Status
+
+| Task | What | Status | Depends on |
+| --- | --- | --- | --- |
+| T1 | Audit and UI standards doc | done | — |
+| T2 | Tokens and shared primitives | done | T1 |
+| T3 | Mobile navigation | done | T2 |
+| T4 | Header polish | done | T2, T3 |
+| T5 | Footer rebuild | done | T2 |
+| T6 | Info and legal pages | done | T2, T5 |
+| T7 | Not-found, error and loading states | not started | T2, T5 |
+| T8 | Shop listing: URL sort, empty state, a11y | not started | T2, T7 |
+| T9 | Product card polish | not started | T2 |
+| T10 | Product page depth | not started | T2, T9 |
+| T11 | Home page sections and copy | not started | T2 |
+| T12 | Metadata, OG image, sitemap, robots | not started | T2 |
+| T13 | Motion and reduced-motion pass | not started | T2 |
+| T14 | Documentation updates | not started | T2–T13 |
+| T15 | End-to-end verification sweep | not started | T1–T14 |
+
+Keep this table in step with the checkboxes: when a task is ticked, change its row here too.
+
+Definition of done for the whole plan: every range and the shop are reachable from a phone header
+in two taps or fewer; the footer is a real footer with navigation, legal links, the 21+ notice and
+a copyright line, and it renders with WordPress stopped; unknown slugs, thrown errors and slow
+routes each show a designed page, the unknown slug with a 404 status; every interactive border
+measures ≥3:1 in the browser; the product page has breadcrumbs, quantity, spec/shipping details,
+related products and valid JSON-LD; the shop sorts by URL and has an empty state; `/sitemap.xml`,
+`/robots.txt` and an OG image exist; `frontend/UI-STANDARDS.md` records the measured standards;
+and `build`, `tsc --noEmit` and `lint` are clean.
+
+---
+
+## T1 — Audit the rendered site and write the UI standards — `[x]` done
+
+**Goal** — `frontend/UI-STANDARDS.md` exists and holds measured numbers, and the audit findings are
+recorded in repository memory.
+
+**Depends on** none. **Parallel with** none — everything else loads this file.
+
+**Context to load** — `docs/ui-ux-plan.md` (the eleven audit findings); `frontend/src/app/globals.css`;
+`frontend/src/components/ui/{button,badge,price}.tsx`; `frontend/src/components/layout/{header,footer}.tsx`;
+the shared commands and screenshot recipe above; memory file `/memories/repo/vapestack-storefront.md`.
+
+**Do**
+
+1. Bring the site up: `$WPDEV up .`, then a dev server on `:3000` (`ss -ltn` first — 3000 may be
+   taken, in which case use the port `next dev` prints and use that number everywhere below).
+2. Walk the six routes — `/`, `/shop`, `/shop/disposables`, `/shop/e-liquids`,
+   `/product/neon-rush-6000`, `/checkout` — at 1440x900, 768x1024 and 390x844 with the recipe
+   above, and note what is actually broken at each width. Confirm the phone-header finding (no
+   nav and no "Shop all" below 768px) rather than assuming it.
+3. **Measure contrast in the browser**, from `getComputedStyle`, not from the hex values: for every
+   element with a border or a background that a visitor is meant to perceive as a control, take its
+   `color`, `backgroundColor` and `borderTopColor`, and compute the WCAG relative-luminance ratio
+   against the nearest opaque background. Report the pairs in a table. The plan predicts
+   `ink-700` on `ink-900` = 1.21:1 and on `ink-950` = 1.25:1 — either reproduce those or say what
+   the real numbers are.
+4. Write `frontend/UI-STANDARDS.md` with these sections, and no padding:
+   - **How to verify a UI change here** — the shared commands and the screenshot recipe, including
+     *why* the VS Code pane is not evidence for 1440px.
+   - **Colour** — the token table with the measured ratios and a pass/fail against 3:1 for UI
+     boundaries and 4.5:1 for body text.
+   - **Type and spacing rhythm** — the scale actually in use (sizes, weights, tracking, section
+     gaps), so `mt-16` is a decision rather than a habit.
+   - **Component and state rules** — what hover, focus, active, disabled, loading, empty and error
+     look like, and which token each uses.
+   - **Accessibility checklist** — skip link, focus visibility, `aria-current`, `aria-live`,
+     keyboard operability, the `sr-only` radio pattern, and the `alt=""` rule for product imagery
+     with its justification (the heading inside the same link already names the product).
+   - **Reduced motion** — the rule T13 implements.
+   - **Responsive contract** — the three widths above and what must be true at each.
+   - **Tailwind v4 traps already paid for** — unlayered rules beat every layer; `hidden` loses to a
+     later-emitted display utility, so use a variant (`max-md:hidden`), not `hidden md:flex`.
+5. Record the same findings in `/memories/repo/vapestack-storefront.md` (a `## UI standards` line
+   pointing at the doc plus the measured ratios).
+
+**In scope** — `frontend/UI-STANDARDS.md` (new); `/memories/repo/vapestack-storefront.md`.
+**Out of scope** — any change to application code. This task measures and writes down; T2 onwards
+changes things. Do not "fix as you go".
+
+**Acceptance criteria**
+
+1. `frontend/UI-STANDARDS.md` exists and its contrast table contains ratios measured in the browser
+   this session, each labelled pass or fail against 3:1 or 4.5:1.
+2. The document names the screenshot method that works here and the reason the VS Code pane is not
+   evidence for desktop widths.
+3. The phone-header finding is confirmed or corrected from a screenshot at 390x844, not from
+   reading the source.
+4. Repository memory carries the measured ratios.
+
+**Verify** — `cat frontend/UI-STANDARDS.md` plus the three screenshots of `/shop` at
+`/tmp/ui/shop-{1440,768,390}.png` with `file` output showing the real dimensions, and the computed
+ratio table. Report the actual numbers.
+
+**Size** — M
+
+> verified: `frontend/UI-STANDARDS.md` written. 15 screenshots at real widths —
+> `file /tmp/ui/*.png` reports `1440 x 900`, `768 x 1024`, `390 x 844` for `/`, `/shop`,
+> `/shop/e-liquids`, `/product/neon-rush-6000` and `/checkout`. No horizontal overflow anywhere:
+> `scrollWidth === clientWidth` (1440/1440, 768/768, 390/390) on all five routes; document heights
+> 946–3732px, so nothing was lost to a clipped capture.
+> Contrast measured in the browser with `getComputedStyle` and backgrounds composited to the nearest
+> opaque ancestor (throwaway script, `/tmp/ui/measure.cjs`): **`ink-700` `#1d212c` borders measure
+> 1.21:1 on `ink-900` and 1.25:1 on `ink-950`**, sampled on the cart button, the unselected range
+> chip, the sort select, the billing input, the note textarea, the product card and the range tile —
+> nine controls, every one failing 1.4.11's 3:1. `ink-800` on `ink-900` is 1.06:1 and is decorative.
+> Text passes everywhere: `ink-400` 5.24:1 / 5.4:1, `ink-200` 12.42:1, `ink-50` 18.66:1, `neon-400`
+> 16.55:1, primary-button `ink-950` on `neon-400` 16.55:1. The plan's predicted numbers were 1.21:1
+> and 1.25:1 — reproduced exactly.
+> The phone-header finding is confirmed from the 390x844 screenshot, not from the source: the header
+> holds only `VAPESTACK` and `Cart`, with no menu and no "Shop all". The hero eyebrow reads
+> "HEADLESS STOREFRONT DEMO" and the body explains the stack — README voice on a shop page.
+> Recorded in `/memories/repo/vapestack-storefront.md` under `## UI standards`.
+> Two things worth carrying forward: `/checkout` with an empty cart renders the empty state and not
+> the form, so anything measuring `input#firstName` must add an item through the PDP first; and
+> `chrome --headless=new --screenshot` cannot seed `localStorage`, so the age gate covers the page —
+> dismissing it means driving the Playwright package from the npx cache and clicking the gate's own
+> button.
+
+---
+
+## T2 — Tokens and shared primitives — `[x]` done
+
+**Goal** — An interactive-border token that measures ≥3:1, a danger token, and five primitives
+(`Container`, `Field`, `Select`, `Prose`/`InfoPage`, `SkipLink`) exist; `getCatalogue()` is cached.
+
+**Depends on** T1. **Parallel with** T5, T6, T11, T12, T13.
+
+**Context to load** — `frontend/UI-STANDARDS.md` (written by T1 — this is the token table and the
+contrast targets); `frontend/src/app/globals.css`; `frontend/src/components/ui/button.tsx`;
+`frontend/src/components/checkout/checkout-form.tsx`; `frontend/src/lib/wp/catalog.ts`;
+`frontend/src/lib/wp/graphql.ts` (for the `revalidate` and `tags` already in use).
+
+**Do**
+
+1. Add to `@theme` in `globals.css`: a border token for interactive controls at ≥3:1 against both
+   `ink-900` and `ink-950` — **a new token, not a change to `ink-700`**, which is also used for
+   panel borders and dividers where 3:1 is not wanted — and a `danger` colour for error text.
+   Keep every existing token value unchanged.
+   Then apply that token to **every interactive boundary the audit listed**, not only the new
+   primitives: the outline button, the cart stepper, the chips, the product card, the range tile and
+   the option pill each need one class changed. The token and its consumers are one change — leaving
+   consumers on `ink-700` would mean the contrast fix is not actually delivered, and the later
+   styling tasks (T8, T9, T10) then restyle rather than repair. Panel outlines and dividers stay on
+   `ink-700`/`ink-800`.
+2. `Container` — replaces the container string `mx-auto w-full max-w-6xl px-5 sm:px-8` repeated in
+   six files. Narrow/wide variants if a page needs them; do not invent variants nobody uses.
+3. `Field` — label + input + optional hint and error, with `useId` for the pairing. Collapses the
+   seven near-identical blocks in `checkout-form.tsx`; the checkout form is the proof it fits.
+   Every field keeps its `autoComplete` and `required`.
+4. `Select` — a native `<select>` in the `Field` look (`rounded-xl`, compliant border), replacing
+   the `rounded-full` select in `components/product/product-grid.tsx` and the sort label beside it.
+5. `Prose` — the styling the info pages will need, applied as a component so the legal copy in T6
+   is plain markup. Hand-written against tokens: no `@tailwindcss/typography`, no new dependency.
+   Note in the file why it is unlayered or layered, whichever you choose.
+6. `SkipLink` — visually hidden until focused, targeting `#main-content`.
+7. `getCatalogue()` gains React `cache()`. It is read by the header and by every page today, and
+   T5 adds a third reader; the wrapper is the cheap fix. Do not change its signature or its
+   `null`-on-unreachable contract.
+
+**In scope** — `frontend/src/app/globals.css`; `frontend/src/components/ui/**`;
+`frontend/src/components/product/product-grid.tsx` (the `Select` swap and nothing else);
+`frontend/src/components/checkout/checkout-form.tsx` (the `Field` migration and nothing else);
+`frontend/src/lib/wp/catalog.ts`.
+**Out of scope** — the header, the footer, the product card, the home page, any route file, the
+mobile nav. No behaviour change anywhere: this is a structural task and its evidence is that
+nothing looks or behaves differently.
+
+**Acceptance criteria**
+
+1. The new border token measures ≥3:1 against `ink-900` and `ink-950` in the browser.
+2. `grep -rn "max-w-6xl px-5" frontend/src` returns no matches outside `Container`.
+3. The checkout form still validates and still posts the same payload — compare the `fetch` body
+   before and after.
+4. `getCatalogue` is wrapped in `cache()` and its `null`-on-unreachable behaviour is unchanged.
+
+**Verify** — `env -C frontend npm run build && env -C frontend npx tsc --noEmit && env -C frontend npm run lint`;
+screenshots of `/shop` and `/checkout` at all three widths compared against T1's, showing no visual
+change; the computed ratio of the new border token.
+
+**Size** — M
+
+> verified: `--color-line: #5b6478` and `--color-danger: #ff6b6b` added to `@theme`; `Container`,
+> `Field`, `TextAreaField`, `Select`, `Prose` and `SkipLink` written under `components/ui/`; the
+> token applied to the outline button, the cart stepper, the chips, the product card, the range tile
+> and the option pill; `getProducts`, `getCategories` and `getCatalogue` wrapped in React `cache()`.
+>
+> `npx tsc --noEmit` exit 0, `npm run lint` clean, `npm run build` `✓ Compiled successfully`, and
+> every route listed as `ƒ (Dynamic)` — so the build still fetches nothing from WordPress.
+>
+> Contrast re-measured in the browser after the change: the new border reads **3.37:1 on ink-950**
+> and **3.27:1 on ink-900** (predicted 3.38 / 3.28), against 1.25:1 and 1.21:1 before. Every
+> sampled control now takes it — cart button 3.37, sort select 3.37, unselected chip 3.37, product
+> card 3.27, range tile 3.27, billing input 3.37, note textarea 3.37. All seven now pass 1.4.11.
+> The order-summary panel stays on `ink-800` at 1.06:1, which is a decorative panel and not a
+> control.
+>
+> The refactor changed no layout: all fifteen screenshots have document heights identical to T1's
+> to the pixel (`/shop` 1440 = 1581, 768 = 2072, 390 = 3732; `/checkout` 390 = 880), with
+> `scrollWidth === clientWidth` at all three widths.
+>
+> The checkout payload is unchanged: the form still exposes exactly seven named controls —
+> `firstName`, `lastName`, `email`, `address1`, `city`, `postcode` (input) and `note` (textarea) —
+> with the same `type`, `required` and `autocomplete` values as before, each resolving to a label.
+> The sort control is `select#sort` with the same three option values, and its accessible name is
+> exactly **"Sort"** read from the CDP accessibility tree — a wrapping `<label>` did not fold the
+> option text into the name.
+>
+> Two deliberate departures from the task text, recorded so the next session is not misled:
+> `grep -rn "max-w-6xl px-5 sm:px-8" frontend/src` now returns nothing, but only four files ever had
+> that exact string — the header and footer use a different wrapper and are rewritten in T3 and T5 
+> rather than migrated here. And `Field` has no per-field `hint`/`error` slot: the checkout form
+> reports failure once for the whole request because that is the only failure the app produces, so
+> the slot would have had no caller.
+
+---
+
+## T3 — Mobile navigation — `[x]` done
+
+**Goal** — Below 768px a visitor can open a menu from the header and reach Shop, all three ranges
+and "Shop all" with the keyboard as well as the mouse.
+
+**Depends on** T2. **Parallel with** T4, T6.
+
+**Context to load** — `frontend/src/components/layout/header.tsx` (read the `max-md:hidden`
+comment: it exists because `hidden` loses to a later display utility); `frontend/src/app/layout.tsx`
+(where the overlays live and why); `frontend/src/components/cart/cart-drawer.tsx` and
+`frontend/src/components/cart/cart-button.tsx` (the pattern to copy); `frontend/src/lib/modal-behaviour.ts`;
+`frontend/src/lib/wp/catalog.ts`.
+
+**Do**
+
+1. Add `frontend/src/stores/nav.ts` — a tiny zustand store with `isOpen`, `open`, `close`. Not
+   persisted, no `skipHydration` needed. Mirrors `stores/cart.ts` so there is one pattern.
+2. Add `frontend/src/components/layout/mobile-nav-button.tsx` — the trigger, a client component
+   using that store. Give it an accessible name that changes with state, and `aria-expanded` and
+   `aria-controls`.
+3. Add `frontend/src/components/layout/mobile-nav.tsx` — the panel. Reuse `useModalBehaviour` for
+   the focus trap, Escape and scroll lock; **do not write a second trap**. It stays mounted while
+   closed so the transition runs both ways, and carries `inert` when hidden, exactly as the drawer
+   does.
+4. Mount `<MobileNav categories={…} />` in `app/layout.tsx` **outside `<header>`** — that element
+   is `backdrop-blur`, and a `backdrop-filter` is the containing block for `position: fixed`
+   descendants, so a fixed panel inside it would be positioned against the header box. This is the
+   single easiest thing to get wrong in this task.
+5. Feed it categories from the layout. `app/layout.tsx` is a server component: read the catalogue
+   there and pass `categories` down (the `cache()` added in T2 keeps this from doubling the read).
+   When the catalogue is unavailable, pass `[]` and render Shop plus "Shop all" only — the panel
+   must never fail a page.
+6. The panel lists Shop, the three ranges, and "Shop all"; links close the panel on click. The
+   button is visible below `md` and hidden at `md` and up, using a **variant** (`md:hidden`), not an
+   unprefixed `hidden`.
+
+**In scope** — `frontend/src/stores/nav.ts` (new), `frontend/src/components/layout/mobile-nav.tsx`
+(new), `frontend/src/components/layout/mobile-nav-button.tsx` (new),
+`frontend/src/components/layout/header.tsx` (the trigger only),
+`frontend/src/app/layout.tsx` (the mount and the catalogue read).
+**Out of scope** — the footer (T5), the desktop nav's appearance (T4), any route file, the cart.
+Do not change `dynamic = "force-dynamic"`.
+
+**Acceptance criteria**
+
+1. At 390x844 the header shows the menu trigger, and opening it lists Shop, all three ranges and
+   "Shop all"; each navigates.
+2. `Escape` closes it and focus returns to the trigger; Tab does not leave the panel while it is
+   open; the page behind it does not scroll.
+3. The nav and the cart drawer are never open at the same time.
+4. At 768x1024 and 1440x900 the trigger is gone and the existing desktop nav is unchanged.
+5. With WordPress stopped, the panel still opens and shows Shop and "Shop all".
+
+**Verify** — Screenshots at all three widths with the panel open and closed; a keyboard walk
+(Tab to the trigger, Enter, Tab through the links, Escape, confirm focus is back on the trigger);
+`$WPDEV down` and repeat the 390px check, then `$WPDEV up .`. Report the specific key sequence and
+what focus did.
+
+**Size** — M
+
+> verified: `stores/nav.ts`, `layout/mobile-nav.tsx` and `layout/mobile-nav-button.tsx` added; the
+> trigger wired into `header.tsx`; the panel mounted in `app/layout.tsx` with the catalogue read
+> there and passed down as props. `npx tsc --noEmit` exit 0, `npm run lint` clean.
+>
+> Geometry read in the browser at 390x844: closed, the panel is `translate: 100%` with its box at
+> 390→710 in a 390px viewport — **0 visible pixels** — plus `pointer-events: none` and `inert`;
+> open, `translate: 0px` with the box at 70→390, so **320px visible** (`max-w-xs`), `pointer-events:
+> auto`, `inert` gone, `aria-expanded="true"`, `document.body.style.overflow` `hidden`. At 768 and
+> 1440 the wrapper computes to `display: none`, 0 visible pixels, the trigger `display: none`, the
+> desktop nav `flex`, and `scrollWidth === clientWidth`.
+>
+> Entries at 390: `/shop`, `/shop/disposables`, `/shop/e-liquids`, `/shop/pod-kits`, `/shop`
+> ("Shop all"), with `aria-current="page"` on Shop while on `/shop` and on nothing else.
+>
+> Keyboard: focus lands on the panel's first control ("Close menu") when it opens; eight Tabs walk
+> Shop → Disposables → E-Liquids → Pod Kits → Shop all → Close menu → Shop …, every stop reported
+> `inside=true`; Escape closes it, restores `body.style.overflow` to `""` and returns focus to the
+> **trigger** ("Open menu").
+>
+> Never both open: with the nav up, opening the cart leaves the nav `inert` with
+> `aria-expanded="false"` while the drawer's `inert` is removed.
+>
+> Widening past `md` while it is open closes it — `body.style.overflow` goes from `hidden` back to
+> `""` and `aria-expanded` to `false`, so the `md:hidden` wrapper cannot leave a phantom scroll
+> lock behind.
+>
+> Offline: with WordPress stopped **and the dev data cache removed**, `/shop` serves `OfflineNotice`
+> and the panel still opens offering exactly `["/shop", "/shop"]` — Shop and "Shop all", no
+> categories, nothing broken. WordPress was brought back up afterwards and the catalogue re-checked
+> at `200`.
+>
+> Four things this task cost, all worth knowing before the next one:
+> 1. **Tailwind v4's `translate-x-*` sets the CSS `translate` property, not `transform`.**
+>    `getComputedStyle(el).transform` reads `"none"` for a correctly hidden panel, which looks
+>    exactly like a panel sitting on screen. Read `translate`.
+> 2. **The dev data cache is `frontend/.next/dev/cache`, not `.next/cache`.** `rm -rf .next/cache`
+>    removes nothing and the cached catalogue keeps serving with WordPress down, so an offline test
+>    silently passes as an online one. `rm -rf .next/dev` is what forces an uncached read — and the
+>    server must be stopped first, because deleting it underneath a running dev server makes Next
+>    restart itself.
+> 3. **A forced click while the age gate is up hits the gate.** The gate is server-rendered HTML, so
+>    a click before hydration is silently lost and the gate stays; `{ force: true }` then dispatches
+>    at the trigger's coordinates, which the gate covers — one run landed on "No, I am under 21".
+>    Click the gate's own button without forcing, then wait for `[data-age-gate-root]` to disappear.
+> 4. `cart-button.tsx` was changed, slightly outside this task's stated scope: it closes the nav
+>    when the cart opens, which is what makes "never both open" true rather than hopeful.
+>
+> Known gap until T6 lands: the footer still has no links, so nothing here is reachable from it yet.
+
+---
+
+## T4 — Header polish — `[x]` done
+
+**Goal** — A skip link is the first focusable element, the current range is marked in the nav, and
+the header is comfortable at 768px.
+
+**Depends on** T2, T3. **Parallel with** T6.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/components/layout/header.tsx`;
+`frontend/src/app/layout.tsx`; `frontend/src/components/ui/skip-link.tsx` (from T2).
+
+**Do**
+
+1. Render `<SkipLink />` as the first child of `<body>` in `app/layout.tsx`, and give the existing
+   `<main>` an `id="main-content"` and `tabIndex={-1}` so the jump moves focus rather than only the
+   scroll position.
+2. Mark the active range with `aria-current="page"`. The header is a server component and does not
+   know the pathname, so put the links in a small client component that reads `usePathname()` —
+   keep `Header` itself a server component and keep fetching the catalogue there.
+3. Re-check the nav at **768x1024** specifically: at that width the header now holds the wordmark,
+   Shop, three ranges, "Shop all" and the cart. If it crowds or wraps, take the smallest fix
+   (shorten the wordmark's tracking, drop "Shop all" at `md` and show it from `lg`, or reduce the
+   gap) and record the choice in the standards doc.
+4. Check the wordmark and the cart button for an adequate hit area and a visible focus ring, and
+   confirm the sticky header does not cover an anchored target when the skip link is used.
+
+**In scope** — `frontend/src/app/layout.tsx`; `frontend/src/components/layout/header.tsx`; the new
+nav-links client component.
+**Out of scope** — the mobile panel (T3), the footer (T5), route content. Do not change the
+`max-md:hidden` reasoning in the comment without replacing it with the new rule.
+
+**Acceptance criteria**
+
+1. The first Tab from a fresh load focuses a visible "Skip to content" link, and activating it puts
+   focus inside `<main>`.
+2. On `/shop/disposables` the Disposables nav link carries `aria-current="page"`; on `/shop` none
+   of the range links does.
+3. At 768x1024 the header does not wrap or overflow: `document.documentElement.scrollWidth` equals
+   `clientWidth`.
+4. Every header control has a visible focus ring.
+
+**Verify** — Screenshots at three widths; a keyboard walk from a fresh load; the `scrollWidth`
+check at 768 evaluated in the browser. Report the focus sequence.
+
+**Size** — S
+
+> verified: `SkipLink` is the first child of `<body>`; `<main>` carries `id="main-content"` and
+> `tabIndex={-1}`; the header's inline nav moved into a new client `NavLinks` that reads
+> `usePathname()`, so `Header` stays a server component. `npx tsc --noEmit` exit 0, `npm run lint`
+> clean.
+>
+> Keyboard walk from a fresh load at 1440: `Skip to content` → `VAPESTACK` → `Shop` →
+> `Disposables` → `E-Liquids` → `Pod Kits` → `Shop all` → `Cart, empty`. The skip link is the first
+> stop, is 135x36 and fully visible when focused (absolute, clip-path `none`, neon background), and
+> pressing Enter moves focus to **`main#main-content`** rather than only scrolling. At 390 the order
+> is `Skip to content` → `VAPESTACK` → `Open menu` → `Cart, empty` → the chips.
+>
+> `aria-current="page"` lands on exactly one link per route — `Shop` on `/shop`, `Disposables` on
+> `/shop/disposables`, `E-Liquids` on `/shop/e-liquids` — and the active link is the only one in
+> `neon-400` (verified as `rgb(182, 255, 61)` against `rgb(201, 207, 219)` for the rest).
+>
+> Every focus stop reports `2px solid rgb(182, 255, 61)` — the neon token — at both 1440 and 390.
+>
+> The header does not wrap or overflow: at 768, 1024 and 1440 `scrollWidth === clientWidth`, all four
+> nav links share one row (`top` = 20 for each) and the wordmark, nav and cart sit on one row.
+>
+> Two corrections this task forced, both recorded in `frontend/UI-STANDARDS.md`:
+> - **The nav links were 20px tall**, under the 24x24 WCAG 2.5.8 asks of a standalone target. They
+>   now carry `py-1` and measure 28px, at no layout cost — the 36px cart button sets the row height.
+> - **The first focus measurement was taken mid-transition and was wrong.** Tailwind's `transition`
+>   utility includes `outline-color`, so the ring animates in over ~150ms; reading `outlineColor` in
+>   the same tick as the `Tab` press returns the element's own text colour and reads exactly like a
+>   ring that ignores the token. `CSS.getMatchedStylesForNode` shows the `:focus-visible` rule
+>   matching, and the same elements report neon once a 250ms wait is added. The standards doc now
+>   says to measure after the transition settles.
+
+---
+
+## T5 — Footer rebuild — `[x]` done
+
+**Goal** — The footer is a real footer: four columns, working navigation, legal links, the 21+
+notice, a copyright line and the honest demo disclaimer — and it renders with WordPress stopped.
+
+**Depends on** T2. **Parallel with** T3, T4, T6.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/components/layout/footer.tsx`;
+`frontend/src/components/layout/header.tsx` (the "header is not worth failing a page over"
+reasoning, which applies here twice over); `frontend/src/lib/age-gate.ts`;
+`frontend/src/app/globals.css` (the unlayered age-gate rule); the T6 route list.
+
+**Do**
+
+1. Rebuild `footer.tsx` as a server component with four content columns and a bottom bar:
+   - **Brand** — wordmark, a one-line description in shop voice, and the live demo link.
+   - **Shop** — from the catalogue: Shop plus the three ranges, each linked. Fall back to Shop
+     alone when the catalogue is unavailable. The footer must never fail a page.
+   - **About** — About, Contact (T6).
+   - **Help & legal** — Shipping & Returns, Privacy, Terms (T6).
+   - **Bottom bar** — `© <year> Vapestack`, a plain statement that this is a demo where nothing is
+     sold, and the "reset age verification" control.
+2. The 21+ band carries the age notice text and the demo disclaimer.
+3. **Reset age verification:** add `forgetAgeGateAnswer()` to `frontend/src/lib/age-gate.ts`, and
+   the control that calls it must **also remove `data-age-gate="off"` from `<html>`** — otherwise
+   the unlayered rule in `globals.css` keeps the gate hidden even though the answer is gone. Read
+   `AGE_GATE_SCRIPT` and the writer in that file before writing this; the store-shaped state in
+   `components/age-gate.tsx` may also need to be told. Make it a client component and prove the
+   gate actually comes back.
+4. Rewrite the copy in shop voice. The current text explains the stack ("Next.js and Tailwind in
+   front, WooCommerce and WPGraphQL behind") — that belongs in `/about`, not under every page.
+5. Keep `mt-20` or replace it with the section rhythm from the standards doc, and make sure the
+   footer's narrowest layout has no horizontal overflow at 390px.
+
+**In scope** — `frontend/src/components/layout/footer.tsx`; a new
+`frontend/src/components/layout/age-gate-reset.tsx`; `frontend/src/lib/age-gate.ts`;
+`frontend/src/components/age-gate.tsx` only if the reset needs it to react.
+**Out of scope** — the info pages themselves (T6); the header; any route. Do not add a newsletter
+form, social icons that go nowhere, or payment logos for a shop that takes no payment.
+
+**Acceptance criteria**
+
+1. All footer links resolve to real routes (200, not a 404) once T6 is done. Until then, list them
+   and confirm the slugs match T6's list exactly.
+2. At 390x844 the footer stacks with no horizontal overflow, and at 1440x900 it is four columns
+   plus the bottom bar.
+3. With WordPress stopped (`$WPDEV down`), the footer still renders, with the static fallback.
+4. "Reset age verification" makes the gate reappear on the next load — prove it in the browser,
+   with the answer removed from `localStorage` **and** `data-age-gate` gone from `<html>`.
+
+**Verify** — Screenshots at three widths; `$WPDEV down` and re-shoot the 390px footer, then
+`$WPDEV up .`; the reset control exercised in the browser with the `<html>` attribute and the
+`localStorage` key both read back and reported.
+
+**Size** — M
+
+> verified: `footer.tsx` rebuilt as four columns (brand + live/source links, Shop, About, Help &
+> legal), a 21+ panel, and a bottom bar with the copyright and the reset control; `InfoPage` and the
+> five routes added (T6); `forgetAgeGateAnswer()` added to `lib/age-gate.ts`. `tsc --noEmit` exit 0,
+> `npm run lint` clean, `npm run build` clean with all nine routes `ƒ (Dynamic)`.
+>
+> Links, checked with a real request for each: **every internal link answers 200** — `/shop`,
+> `/shop/disposables`, `/shop/e-liquids`, `/shop/pod-kits`, `/about`, `/contact`,
+> `/shipping-returns`, `/privacy`, `/terms` — and both external links answer 200 too, including the
+> repository URL, which was verified rather than assumed.
+>
+> Layout at three widths, from the DOM: **390** one column (`grid-template-columns` = 1, four
+> distinct column tops, footer 1060px tall) with `scrollWidth === clientWidth`; **768** two columns
+> (columns pair at tops 1956/1956 and 2136/2136, footer 668px); **1440** four columns on one row (all
+> tops 1485, footer 500px). The copyright line, the 21+ notice and the reset control are present at
+> all three.
+>
+> Offline, with WordPress stopped and a cold dev cache: `/shop` serves `OfflineNotice` and the footer
+> still renders all four columns, with the **Shop column degrading to exactly `["/shop"]`** — "Shop
+> all" and nothing else. The About and Help & legal columns keep every link, because those pages
+> need no catalogue. No horizontal overflow (390/390).
+>
+> The reset control, exercised in the browser: before, `localStorage['vapestack-age-verified']` was
+> `"true"`, `<html>` carried `data-age-gate="off"` and no gate was in the DOM; after clicking it,
+> the key is `null`, the attribute is `null`, the gate is back in the DOM, visible, 900px tall, and
+> the page is asking "Are you 21 or older?". This is the trap the plan predicted: clearing the key
+> alone would have left the unlayered CSS rule hiding the gate forever, so the attribute is removed
+> as well, and the page reloads rather than threading a second store through the gate.
+>
+> Deliberately absent: no newsletter form, no social icons that go nowhere, and no payment logos for
+> a shop that takes no payment.
+
+---
+
+## T6 — Info and legal pages — `[x]` done
+
+**Goal** — `/about`, `/contact`, `/shipping-returns`, `/privacy` and `/terms` exist as static
+server components that render with WordPress stopped, sharing one shell.
+
+**Depends on** T2, T5 (the footer links to them). **Parallel with** T3, T4.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; the `Prose`/`InfoPage` primitive from T2;
+`frontend/src/app/layout.tsx` for `dynamic`; `frontend/README.md` for the offline-is-expected rule;
+the footer built in T5.
+
+**Do**
+
+1. Build the five routes under `frontend/src/app/`. One shared `InfoPage` shell: container, an
+   `h1`, a "last updated" line, `<Prose>` around the body, and a back-to-the-shop link.
+2. Copy is demo-honest and short. It is a portfolio demo, not a real shop:
+   - **About** — what Vapestack is, the stack in one paragraph (this is where the developer
+     explanation from the old footer belongs), and that the catalogue is live from WooCommerce.
+   - **Contact** — how to reach the person who built it. **No form**: nothing would receive it.
+   - **Shipping & Returns** — plainly that nothing ships and nothing is charged, plus what a real
+     policy would have to cover.
+   - **Privacy** — no tracking or analytics, the cart is in `localStorage`, the order details typed
+     at checkout are stored in WooCommerce, and the age answer is in `localStorage`. Verify each
+     claim against the code before writing it.
+   - **Terms** — the 21+ restriction, the demo disclaimer, and no warranty.
+3. `metadata` per page: title, description, canonical.
+4. These routes must not read the catalogue — that is what makes them render with the tunnel shut.
+   Confirm they are not accidentally made dynamic-only by a catalogue read.
+
+**In scope** — the five new route files, the shared shell, and any nav/footer link correction.
+**Out of scope** — any WordPress-side page. No GraphQL or REST read on these routes. No contact
+form, no analytics, no cookie banner.
+
+**Acceptance criteria**
+
+1. All five routes answer 200 and render the footer and header.
+2. They still render with WordPress stopped (`$WPDEV down`).
+3. Each has its own title and description in the served HTML.
+4. No claim in `/privacy` is contradicted by the code — check the storage keys and what the
+   checkout route sends.
+
+**Verify** — `curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT/<route>` for all five;
+a screenshot at three widths of one of them; `$WPDEV down` and repeat the 200 check; `grep -i
+"<title>"` on the served HTML.
+
+**Size** — M
+
+> verified: `/about`, `/contact`, `/shipping-returns`, `/privacy` and `/terms` all answer 200, each
+> with its own title in the served HTML — `About | Vapestack`, `Contact | Vapestack`,
+> `Shipping &amp; Returns | Vapestack`, `Privacy | Vapestack`, `Terms | Vapestack`. All five share
+> `components/layout/info-page.tsx`, which renders the heading, the intro, the "last updated" line
+> and the body inside `Prose`, with a link back to the shop.
+>
+> With WordPress stopped **and the dev cache cleared**, all five still answer 200 — `/privacy` serves
+> its body copy ("There is no analytics…") and the footer with the reset control while `/shop`
+> serves the offline notice in the same window. That is the point of putting this copy in the
+> storefront rather than in WordPress. WordPress was brought back up afterwards and the catalogue
+> re-checked.
+>
+> Deviations, both deliberate:
+> - **No canonical URL yet.** Canonicals need `metadataBase`, and that belongs with the deployment
+>   URL discussion in T12 — so these five carry a title and a description now, and T12 adds the
+>   canonical rather than inventing an env var here that would have been wrong on Vercel.
+> - **No contact form**, as the plan decided: there is no mail server behind this demo, so a form
+>   would post into nothing.
+>
+> Each privacy claim was checked against the code before it was written: the two storage keys are the
+> ones in `lib/age-gate.ts` (`vapestack-age-verified`) and `stores/cart.ts` (`vapestack-cart`), the
+> order is the only thing the browser sends, and the app loads no third-party script and sets no
+> cookie.
+
+---
+
+## T7 — Not-found, error and loading states — `[ ]`
+
+**Goal** — An unknown slug, a thrown error and a slow route each show a designed page, and the
+unknown slug answers 404.
+
+**Depends on** T2, T5. **Parallel with** T8, T9.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/app/layout.tsx`;
+`frontend/src/components/layout/offline-notice.tsx` (the tone and shape a state page should match);
+`frontend/src/app/product/[slug]/page.tsx` and `frontend/src/app/shop/[category]/page.tsx` (they
+call `notFound()`); `frontend/src/app/page.tsx` and `frontend/src/app/shop/page.tsx` (the empty
+catalogue path).
+
+**Do**
+
+1. `frontend/src/app/not-found.tsx` — designed 404 with the shell, a short explanation and links to
+   Shop and home. It must not read the catalogue.
+2. `frontend/src/app/error.tsx` — `"use client"`, takes `error` and `reset`, offers "Try again" and
+   a shop link, and logs the digest. Do not leak the message to the visitor.
+3. `frontend/src/app/loading.tsx` — a skeleton matching the real layout's proportions, so the
+   layout does not jump when the content arrives.
+4. Empty state for a range with no products: in `components/product/product-grid.tsx`, when
+   `products.length === 0`, show a designed message with a link back to Shop instead of an empty
+   grid.
+5. Prove the 404 is real: request an unknown product slug and check both the rendered page and the
+   **HTTP status**. A `notFound()` under a `force-dynamic` layout should answer 404 — confirm it,
+   and if it answers 200, say so rather than hiding it.
+
+**In scope** — the three new files, the `ProductGrid` empty state.
+**Out of scope** — the offline path (`OfflineNotice` already covers it and is correct), the
+checkout, any catalogue query change.
+
+**Acceptance criteria**
+
+1. `/product/does-not-exist` answers **404** and shows the designed page, with the header and footer.
+2. `/shop/does-not-exist` does the same.
+3. A route that throws shows the error page with a working "Try again".
+4. A range with zero products shows the empty state (seed one temporarily, or filter the grid, but
+   revert it — do not leave the seeder changed).
+5. `not-found.tsx` renders with WordPress stopped.
+
+**Verify** — `curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT/product/does-not-exist`;
+screenshots of the 404, the error page and the empty state at three widths; for the error page,
+temporarily throw from a probe route (**not** a folder starting with `_` — the App Router treats
+that as private and never routes it) and remove it afterwards.
+
+**Size** — M
+
+---
+
+## T8 — Shop listing: URL sort, empty state and a11y — `[ ]`
+
+**Goal** — A sorted shop is a shareable URL, the result count is announced, and the chips state
+which range is current.
+
+**Depends on** T2, T7. **Parallel with** T9, T10.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/app/shop/page.tsx`;
+`frontend/src/app/shop/[category]/page.tsx`; `frontend/src/components/product/product-grid.tsx`;
+`frontend/src/components/product/category-chips.tsx`; the `Select` primitive from T2.
+
+**Do**
+
+1. Move the sort into the URL: `/shop?sort=price-asc`. Read `searchParams` in the page (both shop
+   and category), sort on the server, and make the control a link or a small client component that
+   pushes the parameter. Because of this, `ProductGrid` no longer needs to be a client component —
+   check whether it still does, and drop `"use client"` if not.
+2. Keep the three existing orderings and no more. Validate an unknown `sort` value and fall back to
+   name, rather than rendering an unsorted grid.
+3. With JavaScript off, the URLs still work — the sort is a link, not a hydration-only control.
+   Confirm by reading the served HTML.
+4. Announce the result count with `aria-live="polite"`, and mark the current range with
+   `aria-current="page"` in `CategoryChips` (the "All" chip on `/shop`).
+5. Replace the `rounded-full` select with the `Select` primitive and give it an accessible label
+   that is still visible as "Sort".
+
+**In scope** — the two listing pages, `product-grid.tsx`, `category-chips.tsx`.
+**Out of scope** — a price filter, a view toggle, pagination, or any new query. Six products do not
+need them, and the plan excludes them.
+
+**Acceptance criteria**
+
+1. `/shop?sort=price-asc` and `/shop?sort=price-desc` serve the products in that order in the raw
+   HTML, with no JavaScript.
+2. `/shop?sort=nonsense` renders the name order rather than a broken grid.
+3. The category page keeps the sort when switching ranges, or drops it cleanly — decide, and state
+   which.
+4. The current chip carries `aria-current="page"`.
+5. `product-grid.tsx` is a server component if nothing needs it to be a client one.
+
+**Verify** — `curl -s "http://localhost:$PORT/shop?sort=price-asc" | grep -o 'product/[a-z-]*' | head`
+showing the order; the same with JavaScript disabled in the browser; screenshots at three widths.
+
+**Size** — M
+
+---
+
+## T9 — Product card polish — `[ ]`
+
+**Goal** — A card is one clear focus target with a visible ring, a sold-out state that stays
+readable, and a price that reads as a range.
+
+**Depends on** T2. **Parallel with** T8, T10.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/components/product/product-card.tsx`;
+`frontend/src/components/ui/{badge,price}.tsx`; `frontend/src/app/page.tsx` and
+`frontend/src/components/product/product-grid.tsx` for the `eager` usage.
+
+**Do**
+
+1. Ensure the whole card is a single focus target with one visible focus ring and no second
+   focusable element inside it.
+2. Sold-out treatment: the badge must stay legible over the image, and the card must still be
+   reachable and clickable (the product page explains itself) — do not remove the link.
+3. Make the range explicit: "from $9.99" should read as a range, not as a tiny word glued to a
+   price. Use the standards doc's type scale.
+4. Hover and focus must not be the same visual state; both must be visible against `ink-900`.
+5. Confirm the `alt=""` decision against the standards doc's justification. If the heading inside
+   the link already names the product, keep `alt=""` and say so; do not add redundant alt text.
+
+**In scope** — `frontend/src/components/product/product-card.tsx`, `components/ui/price.tsx` if the
+range needs it.
+**Out of scope** — quick-add, wishlist, ratings, hover-only actions, a second link on the card.
+
+**Acceptance criteria**
+
+1. Tabbing through the shop lands on each card exactly once, with a visible ring.
+2. The sold-out badge is legible over the image and the card still links.
+3. At 390x844 no card text is clipped and the grid has no horizontal overflow.
+
+**Verify** — Screenshots at three widths of `/shop` and `/`; a keyboard walk reporting the number
+of tab stops per card.
+
+**Size** — S
+
+---
+
+## T10 — Product page depth — `[ ]`
+
+**Goal** — The product page gains breadcrumbs with JSON-LD, a quantity selector, spec and shipping
+details, related products, and valid `Product` JSON-LD.
+
+**Depends on** T2, T9. **Parallel with** T8.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/app/product/[slug]/page.tsx`;
+`frontend/src/components/product/product-detail.tsx`; `frontend/src/stores/cart.ts` (read it —
+`add(item, quantity)` and `clampQuantity` already exist, so **the store is not changed**);
+`frontend/src/lib/wp/types.ts` (`Product.shortDescription` is mapped but never rendered);
+`frontend/src/lib/wp/catalog.ts` (`getCatalogue()` for related products).
+
+**Do**
+
+1. Breadcrumbs: Home / Shop / Range / Product, rendered as a `<nav aria-label="Breadcrumb">` with an
+   ordered list, plus `BreadcrumbList` JSON-LD.
+2. Quantity selector next to Add to cart: a native number input or the same stepper pattern the cart
+   line uses, bounded by `clampQuantity` and `MAX_QUANTITY`, and clamped rather than rejected. Pass
+   the quantity to `add(item, quantity)`. Reset the quantity after adding, and do not add when the
+   chosen combination is sold out.
+3. Spec and shipping block, from `shortDescription` (which is currently unused) plus the honest
+   shipping statement — nothing ships, nothing is charged. Keep it to what the catalogue and the
+   demo can actually support; do not invent ingredients, capacity or warranty copy that the data
+   does not hold.
+4. Related products: the other products in the same range, from the same `getCatalogue()` read the
+   page already makes. Hide the section when there are none.
+5. `Product` JSON-LD — name, image, description, sku, offers with price and availability, and
+   `priceCurrency: "USD"`. Do not emit a `brand` or `aggregateRating` that does not exist.
+   Validate the JSON by parsing it, not by eyeballing it.
+6. Keep the page's existing 404 and offline behaviour untouched.
+
+**In scope** — `product/[slug]/page.tsx`, `product-detail.tsx`, and new components under
+`components/product/`.
+**Out of scope** — the cart store, the checkout, the API routes, image galleries, reviews,
+    sticky add-to-cart bars (excluded by the plan).
+
+**Acceptance criteria**
+
+1. The breadcrumb trail is correct on a product in each range and the product page emits parseable
+   `Product` and `BreadcrumbList` JSON-LD.
+2. Adding 3 units creates one cart line with quantity 3; adding again makes 6; `MAX_QUANTITY` is
+   respected.
+3. The quantity resets after a successful add, and Add is disabled when the combination is sold out.
+4. `shortDescription` renders when the product has one, and the block is absent rather than empty
+   when it does not.
+5. Related products list the other products in the same range and exclude the one being viewed.
+
+**Verify** — Screenshots at three widths of two product pages; a JSON.parse of both emitted
+`<script type="application/ld+json">` blocks; the cart exercised in the browser with the resulting
+line quantity and `localStorage` read back.
+
+**Size** — L (split before starting if the JSON-LD and the depth work want to be separate)
+
+---
+
+## T11 — Home page sections and copy — `[ ]`
+
+**Goal** — The home page reads like a shop, has a consistent section rhythm and heading hierarchy,
+and carries one honest trust band.
+
+**Depends on** T2. **Parallel with** T12, T13.
+
+**Context to load** — `frontend/UI-STANDARDS.md` (the type and spacing rhythm); `frontend/src/app/page.tsx`;
+`frontend/src/components/product/product-card.tsx`; `frontend/src/components/ui/container.tsx`.
+
+**Do**
+
+1. Rewrite the hero copy in shop voice. Today it explains the stack — that belongs in `/about`. Keep
+   the age/compliance honesty, just not as the headline.
+2. Fix the heading hierarchy: the "Ranges" heading is `h2` styled like a label while "One from each
+   range" is `h2` at `text-2xl`. One scale, applied consistently, with no skipped levels.
+3. Apply one section rhythm to every section (the standards doc names the value) so `mt-16` stops
+   being a habit.
+4. Add one trust/compliance band: the 21+ notice, the demo disclaimer, and what the shop actually is
+   — no invented trust badges, no review counts, no payment logos.
+5. Keep the featured logic (one product per range) and keep it reading from the existing
+   `getCatalogue()` call. Keep the offline path unchanged.
+
+**In scope** — `frontend/src/app/page.tsx` and any new home-only component.
+**Out of scope** — new catalogue queries, testimonials, review scores, statistics, or a second data
+read.
+
+**Acceptance criteria**
+
+1. Heading levels run h1 then h2 consistently, with no skipped level.
+2. Every section uses the same vertical rhythm value.
+3. The page renders with WordPress stopped, exactly as before.
+4. No claim on the page is untrue of a shop that takes no payment and ships nothing.
+
+**Verify** — Screenshots at three widths of `/`; the heading outline read from the DOM
+(`document.querySelectorAll("h1,h2,h3")` with their levels); `$WPDEV down` and re-shoot once.
+
+**Size** — M
+
+---
+
+## T12 — Metadata, OG image, sitemap and robots — `[ ]`
+
+**Goal** — Share links have an image, titles and canonicals are correct, and `/sitemap.xml` and
+`/robots.txt` answer with real content — without the build ever touching WordPress.
+
+**Depends on** T2. **Parallel with** T11, T13.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/src/app/layout.tsx` (the `dynamic` rule
+and the existing `metadata`); `frontend/README.md` (the build-must-not-fetch-WordPress decision);
+`frontend/src/lib/wp/catalog.ts`; `frontend/next.config.ts`.
+
+**Do**
+
+1. `metadataBase` from an env var (a sensible localhost default), a title template, a description,
+   OpenGraph and Twitter defaults, and canonical URLs.
+2. `frontend/src/app/opengraph-image.tsx` using `ImageResponse` from `next/og` (built in — no new
+   dependency). Site-wide and self-contained: tokens, wordmark, one line of copy. **No per-product
+   images** — generating them would need the catalogue at build time.
+3. `robots.ts` — disallow indexing, publish the sitemap URL. The plan's adopted default: a portfolio
+   demo behind a development-machine tunnel should not be surfaced by search.
+4. `sitemap.ts` — the static routes always; the catalogue routes as well, read at request time. The
+   build must not fetch WordPress, so if `export const dynamic = "force-dynamic"` is not honoured
+   for a sitemap the fallback is static entries only — try it, and record which happened rather than
+   guessing.
+5. `themeColor` and the icon entry. **Do not** delete `app/favicon.ico`.
+6. Delete the five unused create-next-app SVGs in `frontend/public/` (`file.svg`, `globe.svg`,
+   `next.svg`, `vercel.svg`, `window.svg`) — confirm with `grep -rn` in `frontend/src` that nothing
+   references them first. Leave `public/products/` alone.
+
+**In scope** — `app/layout.tsx` metadata, the three new route files, `app/favicon.ico` untouched,
+`frontend/public/` cleanup.
+**Out of scope** — per-product OG images, a blog feed, structured data beyond what T10 adds, and any
+change to `next.config.ts` image patterns.
+
+**Acceptance criteria**
+
+1. `curl -s http://localhost:$PORT/robots.txt` and `.../sitemap.xml` return real content, and the
+   sitemap lists the static routes plus the catalogue routes.
+2. The served HTML of `/` has a canonical, an `og:image` and a `twitter:card`.
+3. `npm run build` succeeds with WordPress stopped — run it that way explicitly.
+4. No file in `frontend/src` references the deleted SVGs, and the build is still clean after
+   deleting them.
+
+**Verify** — the two `curl` commands with their output; the build run with `$WPDEV down` and the
+observed result; `grep` for `og:image` in the served HTML; `grep -rn "next.svg\|vercel.svg" frontend/src`.
+
+**Size** — M
+
+---
+
+## T13 — Motion and reduced motion — `[ ]`
+
+**Goal** — Every animation in the app respects `prefers-reduced-motion`, and durations and easings
+are named in the standards doc.
+
+**Depends on** T2. **Parallel with** T11, T12.
+
+**Context to load** — `frontend/UI-STANDARDS.md` (the reduced-motion rule written in T1);
+`frontend/src/components/cart/cart-drawer.tsx`; `frontend/src/components/layout/mobile-nav.tsx`;
+`frontend/src/components/product/product-card.tsx`; `frontend/src/app/loading.tsx`.
+
+**Do**
+
+1. Add `motion-reduce:` variants to: the cart drawer's slide, the mobile nav's transition, the
+   product card's `group-hover:scale-105` image zoom, the skeleton animation, and any transition
+   added in T5, T6, T8 or T11. Reduced motion means the state still changes — it just does not
+   animate.
+2. Check that nothing relies on a transition completing to become usable (a panel that only mounts
+   after a transition, say).
+3. Record the durations, easings and the reduced-motion rule in `frontend/UI-STANDARDS.md` if T1
+   did not already fix them; if T1 did, correct the doc to match what shipped.
+
+**In scope** — the components named above and anything else with a `transition`, `duration-` or
+`animate-` utility, plus the standards doc's motion section.
+**Out of scope** — adding animations that are not there, an animation library, scroll effects, or a
+parallax hero.
+
+**Acceptance criteria**
+
+1. `grep -rn "animate-\|duration-" frontend/src` shows a `motion-reduce:` neighbour for every
+   animation that is not a pure colour transition.
+2. With reduced motion forced on, the drawer and the nav appear and disappear without sliding, and
+   the card image does not zoom on hover.
+3. Nothing becomes unreachable or unstyled when the animation is suppressed.
+
+**Verify** — Screenshots with the browser's reduced-motion emulation on and off for the drawer and
+the nav; the `grep` output; a statement of what changed visually in each mode.
+
+**Size** — S
+
+---
+
+## T14 — Documentation updates — `[ ]`
+
+**Goal** — The repository's own entry points describe the site that now exists, and the UI standards
+are reachable from the file an agent reads first inside `frontend/`.
+
+**Depends on** T2–T13.
+
+**Context to load** — `frontend/UI-STANDARDS.md`; `frontend/README.md`; `frontend/AGENTS.md`;
+`frontend/CLAUDE.md`; the root `README.md`; `CLAUDE.md`; `docs/PROMPTS.md`.
+
+**Do**
+
+1. `frontend/AGENTS.md` — add a pointer to `UI-STANDARDS.md` **below** the generated
+   `nextjs-agent-rules` block. That block is written and re-added by `next dev`, so **verify the
+   addition survives a dev-server restart**; if the generator rewrites the whole file, put the
+   pointer in `frontend/CLAUDE.md` instead and say so.
+2. `frontend/README.md` — the new routes, the new components, the info pages, and the standards doc
+   in its "where things live" table. Keep its three "worth knowing" rules intact and add the fourth
+   only if something genuinely new became true.
+3. Root `README.md` — the storefront description and the route list.
+4. `CLAUDE.md` — the task table if it needs a new row for the frontend commands; do not restate the
+   WordPress rules.
+5. `docs/PROMPTS.md` — add the reusable UI prompts: audit a page at three widths, restyle a section
+   against the standards, and add a route with a designed state.
+6. Add the one-line pointer in `.claude/plan.md` saying the UI/UX work continues in
+   `docs/ui-ux-plan.md`. **Do not touch `.claude/tasks.md`.**
+
+**In scope** — the six markdown files above.
+**Out of scope** — rewriting `docs/Start.md`, `docs/SETUP.md`, `docs/headless-contract.md`, or any
+file under `wp-kit/`.
+
+**Acceptance criteria**
+
+1. An agent opening `frontend/` finds the UI standards in one hop from the file it reads first.
+2. That pointer is still there after restarting `next dev`.
+3. Nothing documented is untrue of the code as it now stands — spot-check each claim you add.
+
+**Verify** — `env -C frontend npm run dev`, confirm the pointer survived, stop the server;
+`grep -n "UI-STANDARDS" frontend/AGENTS.md frontend/CLAUDE.md frontend/README.md`.
+
+**Size** — S
+
+---
+
+## T15 — End-to-end verification sweep — `[ ]`
+
+**Goal** — Everything in the plan's Done-when is shown true at three widths, in the browser, with
+the evidence reported.
+
+**Depends on** T1–T14.
+
+**Context to load** — `docs/ui-ux-plan.md` (Done when is the checklist); `frontend/UI-STANDARDS.md`;
+the shared commands and screenshot recipe above.
+
+**Do**
+
+1. Confirm WordPress and the dev server are up, and note which port is in use.
+2. Walk every route **and every state** at 1440x900, 768x1024 and 390x844: `/`, `/shop`,
+   `/shop/disposables`, `/shop/e-liquids`, `/shop/pod-kits`, `/product/<each slug>`, `/checkout`,
+   the five info pages, the 404, the error page, the empty range, the offline notice, the age gate,
+   the cart drawer (empty and full), the mobile nav, and the checkout success page.
+3. Confirm no horizontal overflow anywhere: `document.documentElement.scrollWidth === clientWidth`
+   at each width for each route.
+4. Keyboard-only pass: skip link first, nav opens and closes with Escape and returns focus, drawer
+   does the same, nav and drawer never open together, every control has a visible ring.
+5. Re-measure the contrast table in the browser and report it against T1's numbers.
+6. Confirm the build is clean and does not reach WordPress: run `npm run build` with `$WPDEV down`.
+7. Run the plan's Done-when list as a checklist and mark each item true or false with its evidence.
+   **A false item is the finding, not a failure to report.**
+
+**In scope** — fixes for anything the sweep turns up, recorded as an addition to the relevant task's
+`> verified:` line, or as a new task appended to this file if it is larger than a small fix.
+**Out of scope** — new features. If the sweep suggests one, put it in the plan's further
+considerations rather than building it.
+
+**Acceptance criteria**
+
+1. Every route and state has a screenshot at all three widths, with `file` output confirming the
+   real dimensions.
+2. Zero horizontal overflow at 390x844 on every route.
+3. The contrast table re-measured meets ≥3:1 for UI boundaries and ≥4.5:1 for body text.
+4. `build`, `tsc --noEmit` and `lint` are clean, and the build runs with WordPress stopped.
+5. Every Done-when item is marked true with its evidence, or false with the reason.
+
+**Verify** — the screenshots, the `file` output, the ratio table, the three command results, and the
+marked-up Done-when checklist. Report the count of items true and false.
+
+**Size** — M

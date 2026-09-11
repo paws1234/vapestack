@@ -1,0 +1,228 @@
+# Vapestack frontend — UI standards
+
+The measured rules for this storefront, written once so a change can be judged against numbers
+instead of taste. Every ratio below was read out of the running site with `getComputedStyle` on
+2026-09-11, not out of the token hex values — the two nearly always disagree once a semi-transparent
+surface is involved.
+
+Read this before changing anything in `frontend/src`. It is the context file for every visual task
+in `docs/ui-ux-tasks.md`.
+
+## How to verify a UI change here
+
+```bash
+WPDEV=/home/adminpaws/Desktop/dev/wp-kit/bin/wpdev
+$WPDEV up .                                     # WordPress must be up or every catalogue page is the offline notice
+ss -ltn | grep -E ':300[01]'                    # a dev server outlives its terminal; look before starting one
+env -C frontend npm run dev                     # 3000, falling back to 3001 — use the port it prints
+env -C frontend npm run build && env -C frontend npx tsc --noEmit && env -C frontend npm run lint
+```
+
+After a production build, a running `next dev` serves the prerendered output for SSG routes and
+stays stale through a dev-server restart. `rm -rf frontend/.next` is what clears it.
+
+### Screenshots at a real width
+
+**The VS Code browser pane is not evidence for desktop.** It cannot be resized past its own width:
+the layout stays at the pane width and is padded into a wider canvas, so a "1440px" screenshot is a
+narrow layout in a wide frame and reads as a lie. `Emulation.setDeviceMetricsOverride` is silently
+ignored there too, so a failed override leaves the viewport at whatever it last was — which is how a
+loop once produced three identical files.
+
+Use the Playwright-bundled Chromium, which lays out at the real width:
+
+```bash
+CHROME=$(ls -d ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | tail -1)
+mkdir -p /tmp/ui
+"$CHROME" --headless=new --no-sandbox --hide-scrollbars --window-size=390,844 \
+  --virtual-time-budget=8000 --screenshot=/tmp/ui/shop-390.png http://localhost:3000/shop
+file /tmp/ui/shop-390.png          # must say 390 x 844 — check, do not assume
+```
+
+That flag set cannot seed storage, and the age gate covers the page, so it is the wrong tool for a
+logged-in-looking audit. The alternative that can — and that also lets you resize, click and read
+computed styles — is the bundled Chromium through Playwright, with `localStorage` established by
+clicking the gate's own button rather than by writing the key by hand:
+
+```bash
+NODE_PATH=$(ls -d ~/.npm/_npx/*/node_modules | head -1) node your-script.cjs
+```
+
+Three widths, every time: **390x844, 768x1024, 1440x900.** Never report a change from a screenshot
+taken before the last edit, and never reuse a page id from an earlier session.
+
+### Measure after the transition settles
+
+Tailwind's `transition` utility includes `outline-color` in its property list, so a focus ring
+**animates in** over ~150ms rather than appearing. Reading `getComputedStyle(el).outlineColor` in
+the same tick as a `Tab` press therefore returns the *starting* value — the element's own text
+colour — which reads exactly like a focus ring that ignores the token. It does not:
+`CSS.getMatchedStylesForNode` shows `:focus-visible { outline: 2px solid var(--color-neon-400) }`
+matching, and the same element reports `rgb(182, 255, 61)` once the wait is added.
+
+Wait for the transition before measuring any animated property, or the measurement is of the
+previous state.
+
+## Colour
+
+Tokens live in `@theme` in `src/app/globals.css`. Tailwind v4 turns each into utilities, so there is
+no config file.
+
+| Token | Value | Role |
+| --- | --- | --- |
+| `--color-ink-950` | `#07080c` | Page background. |
+| `--color-ink-900` | `#0b0d13` | Panels, cards, the drawer. |
+| `--color-ink-800` | `#12151d` | Separators inside a panel, image wells. |
+| `--color-ink-700` | `#1d212c` | Panel outlines and dividers. **Not for controls.** |
+| `--color-ink-400` | `#7c8598` | Muted text. |
+| `--color-ink-200` | `#c9cfdb` | Body text. |
+| `--color-ink-50` | `#f5f7fb` | Headings and primary text. |
+| `--color-neon-400` | `#b6ff3d` | Actions, accent text, focus ring. |
+| `--color-neon-300` | `#d4ff7a` | Primary hover. |
+| `--color-volt-400` | `#35e6ff` | The unavailable-combination notice. |
+
+### Measured ratios
+
+WCAG 1.4.11 asks **3:1** for anything a visitor must perceive to identify a control — a border, an
+outline, an indicator. 1.4.3 asks **4.5:1** for body text and **3:1** for text 24px and over.
+
+| Measured pair | Ratio | Needs | Result |
+| --- | --- | --- | --- |
+| `ink-700` border on `ink-900` (product card, range tile, sort select) | **1.21:1** | 3:1 | ✗ fail |
+| `ink-700` border on `ink-950` (cart button, chips, billing input, textarea) | **1.25:1** | 3:1 | ✗ fail |
+| `ink-800` border on `ink-900` (order-summary panel — decorative, not a control) | 1.06:1 | — | ok |
+| `ink-400` text on `ink-900` | 5.24:1 | 4.5:1 | ✓ pass |
+| `ink-400` text on `ink-950` | 5.4:1 | 4.5:1 | ✓ pass |
+| `ink-200` text on `ink-900` | 12.42:1 | 4.5:1 | ✓ pass |
+| `ink-50` text on `ink-950` | 18.66:1 | 4.5:1 | ✓ pass |
+| `neon-400` text on `ink-950` | 16.55:1 | 4.5:1 | ✓ pass |
+| `ink-950` text on a `neon-400` fill (primary button) | 16.55:1 | 4.5:1 | ✓ pass |
+
+**The one real contrast failure is the border token, and it is system-wide.** Nine separate controls
+were sampled and every one of them draws its boundary with `ink-700`, at 1.21:1 or 1.25:1 — roughly
+a quarter of what is required. The primary button is fine because it is a filled surface, not an
+outline; it is the *outline* variant, the inputs, the select and the cards that disappear. On a dark
+screen a 1.21:1 border is not "subtle", it is invisible.
+
+### Border roles
+
+| Role | Token | Why |
+| --- | --- | --- |
+| Interactive boundary — button outline, input, select, chip, card-as-link | `--color-line` | ≥3:1, measured. |
+| Panel outline, divider inside a panel | `ink-700` / `ink-800` | Decoration. 3:1 is not required and would make the page shout. |
+
+`--color-line` is a **new token introduced in T2**, not a change to `ink-700`: `ink-700` is also the
+panel and divider colour, and moving it would repaint the whole site. Target value `#5b6478` — it
+computes to ≈3.28:1 on `ink-900` and ≈3.38:1 on `ink-950`. **Re-measure it in the browser and raise
+it if it lands under 3:1 on either surface.**
+
+## Type and spacing rhythm
+
+Two families, loaded with `next/font`: Geist Sans (`--font-geist-sans`) and Geist Mono
+(`--font-geist-mono`, currently unused).
+
+| Role | Classes | Notes |
+| --- | --- | --- |
+| Page `h1` | `text-3xl sm:text-4xl font-semibold text-ink-50` | Shop, category, product, info pages. |
+| Home hero `h1` | `text-4xl sm:text-6xl font-semibold leading-tight` | The one exception, and it earns it. |
+| Section `h2` | `text-2xl font-semibold text-ink-50` | Not `text-xs`. The current home page uses both for `h2`, which is the bug T11 fixes. |
+| Eyebrow / label | `text-xs uppercase tracking-[0.25em] text-ink-400` | One tracking value. `[0.2em]` and `[0.3em]` are in use today and are drift. |
+| Body | `text-base` / `leading-relaxed text-ink-200` | |
+| Secondary | `text-sm text-ink-400` | Metas, captions, counts. |
+| Small print | `text-xs text-ink-400` | Footer, disclaimers. Still 5.24:1, so it stays legible. |
+
+| Rhythm | Value | Where |
+| --- | --- | --- |
+| Container | `max-w-6xl` + `px-5 sm:px-8` | Every page. Now `Container`. |
+| Section gap | `mt-16` (4rem) | Between major sections on a page. |
+| Footer separation | `mt-20` (5rem) | The end of every page. |
+| Page padding | `py-10` | Listing and detail pages. |
+| Card grid | `gap-5`, `sm:grid-cols-2 lg:grid-cols-3` | |
+| Tile grid | `gap-4`, `sm:grid-cols-3` | |
+
+Radii are role-based, not decorative: `rounded-full` for anything pill-shaped (buttons, chips,
+badges), `rounded-xl` for inputs and small thumbs, `rounded-2xl` for cards and tiles, `rounded-3xl`
+for hero panels, modals and large image wells.
+
+## Component and state rules
+
+Every interactive element must define **five** states, and none of them may be conveyed by colour
+alone:
+
+| State | Rule |
+| --- | --- |
+| Rest | Names its role. A button with no visible boundary is not a button — see the contrast table. |
+| Hover | A change in boundary or fill. `hover:` only; never required to understand the control. |
+| Focus | `:focus-visible` draws `2px solid neon-400` with `2px` offset, set globally in `globals.css`. Nothing may remove it. An element that is a `peer` gets `peer-focus-visible:ring-2 peer-focus-visible:ring-neon-400`. |
+| Disabled | `disabled:opacity-50` and `disabled:cursor-not-allowed`. A disabled control stays in the layout — a control that vanishes is harder to account for than one that is plainly unavailable. |
+| Loading | The control keeps its size and says what is happening. Never swap a label for a spinner alone. |
+
+Empty, error and offline are states of a *page*, not of a control: each gets a designed block with a
+heading, an explanation and a way out. `OfflineNotice` is the reference implementation.
+
+Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
+keyboard, is struck through, and is explained by a notice that names the working alternative.
+
+## Accessibility checklist
+
+- **Skip link first.** `SkipLink` is the first focusable element in `<body>`; it targets
+  `#main-content`, which is `<main>` with `tabIndex={-1}` so focus actually moves.
+- **One `h1` per page**, no skipped levels. Captions and eyebrows are not headings.
+- **`aria-current="page"`** on the nav link and the chip for the range being viewed.
+- **`aria-live="polite"`** for anything that changes without navigation: the chosen price and
+  availability, the cart count, the shop result count.
+- **Native controls over ARIA.** Selectors are real radios, `sr-only` inside their own `<label>`,
+  with the visible pill in a sibling span so `peer-focus-visible:` can draw the ring. Arrow keys and
+  grouping come free.
+- **`alt=""` on product imagery inside a card**, because the product name is the heading in the same
+  link and a second name would only repeat it. Alt text is required on the product page's main
+  image, where WordPress supplies it.
+- **Modals**: `role="dialog"`, `aria-modal="true"`, labelled by their heading, focus trapped, focus
+  returned to the trigger, and `inert` when closed. All of it comes from `useModalBehaviour` — do not
+  write a second focus trap.
+- **Overlays are never mounted inside `<header>`.** That element is `backdrop-blur`, and a
+  `backdrop-filter` is the containing block for `position: fixed` descendants, so a fixed overlay
+  inside it would be positioned against the header box. Every overlay lives in `app/layout.tsx`.
+- **No horizontal overflow.** `document.documentElement.scrollWidth === clientWidth` at every width,
+  on every route.
+- **Zoom and reflow** to 320px wide without loss of content or function.
+
+## Reduced motion
+
+A transition may never be the thing that makes a change understandable. Every animation carries a
+`motion-reduce:` neighbour and the state still changes, it just stops moving: the drawer and the nav
+appear instead of sliding, the card image does not zoom, and the skeleton does not pulse.
+
+`transition-colors` and other pure colour transitions are exempt — they are not motion.
+
+## Responsive contract
+
+| Width | Must be true |
+| --- | --- |
+| **390x844** — phone | Header is wordmark + menu + cart, and the menu reaches Shop, every range and "Shop all" in two taps or fewer. Footer stacks in one column. Cards 1-up. Page `h1` is `text-3xl`. No horizontal overflow. |
+| **768x1024** — tablet | The desktop nav is visible from `md`, so the header must hold the wordmark, Shop, three ranges, "Shop all" and the cart without wrapping. Cards 2-up. Footer may be 2-up. |
+| **1440x900** — desktop | Nav plus "Shop all", cards 3-up, container capped at `max-w-6xl`. |
+
+Target size: a standalone target (a nav link, a button, a chip) needs **24x24 CSS px** (WCAG 2.5.8).
+Links inside a sentence are exempt; links in a nav are not. Measured today, the desktop nav links are
+20px tall without padding and 28px with `py-1`.
+
+Tailwind defaults in use: `sm` 640, `md` 768, `lg` 1024.
+
+## Tailwind v4 traps this project has already paid for
+
+1. **Unlayered rules beat every layer.** A `display: none` inside `@layer base` loses to
+   `display: flex` from the `utilities` layer regardless of specificity. The age gate's pre-paint
+   switch at the end of `globals.css` is deliberately outside any layer, and it must stay there.
+2. **`hidden` does not reliably hide a display utility.** In the generated stylesheet the order is
+   `.flex` → `.hidden` → `.inline-flex`, so `class="inline-flex … hidden"` stays visible: the later
+   `.inline-flex` wins on order, not specificity. `hidden md:flex` happens to work, `hidden
+   md:inline-flex` does not. **Use a variant** — `max-md:hidden`, `md:hidden` — because variants are
+   emitted after the base utilities. This is why the header's "Shop all" link is `max-md:hidden`.
+3. **No config file.** Tokens are `@theme { --color-… }` in `globals.css` and nothing else.
+
+## The audit trail
+
+The findings this document was written from, and the fixes they justify, are in
+`docs/ui-ux-plan.md`. The tasks that apply them are in `docs/ui-ux-tasks.md`. When a task proves a
+new rule, add it here — this file is the record, not the plan.

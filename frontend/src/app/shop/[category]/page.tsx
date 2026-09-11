@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
+import { Container } from "@/components/ui/container";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 type CategoryPageProps = {
@@ -54,7 +55,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   const inRange = products.filter((product) => product.category?.slug === category);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+    <Container className="py-10">
       <h1 className="text-3xl font-semibold text-ink-50 sm:text-4xl">{match.name}</h1>
       <p className="mt-2 max-w-2xl text-ink-200">
         {match.productCount} {match.productCount === 1 ? "product" : "products"} in this range.
@@ -67,6 +68,6 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       <div className="mt-10">
         <ProductGrid products={inRange} />
       </div>
-    </div>
+    </Container>
   );
 }

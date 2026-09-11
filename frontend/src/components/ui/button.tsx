@@ -13,7 +13,12 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const VARIANTS: Record<Variant, string> = {
   primary: "border border-transparent bg-neon-400 text-ink-950 hover:bg-neon-300",
-  outline: "border border-ink-700 text-ink-50 hover:border-neon-400 hover:text-neon-400",
+  /*
+    `border-line`, not `border-ink-700`: measured at 1.25:1, the old border made an outline button
+    all but invisible on the dark page, and an outline button is identified by nothing else. See
+    `frontend/UI-STANDARDS.md`.
+  */
+  outline: "border border-line text-ink-50 hover:border-neon-400 hover:text-neon-400",
   ghost: "border border-transparent text-ink-200 hover:text-ink-50",
 };
 

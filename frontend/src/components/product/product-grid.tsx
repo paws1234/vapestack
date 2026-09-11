@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ProductCard } from "@/components/product/product-card";
+import { Select } from "@/components/ui/select";
 import type { Product } from "@/lib/wp/types";
 
 /** The orderings the shop offers. */
@@ -44,20 +45,18 @@ export function ProductGrid({ products }: { products: Product[] }) {
           {products.length} {products.length === 1 ? "product" : "products"}
         </p>
 
-        <label className="flex items-center gap-2 text-sm text-ink-400">
-          Sort
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value as Sort)}
-            className="rounded-full border border-ink-700 bg-ink-900 px-3 py-1.5 text-ink-50"
-          >
-            {SORTS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          id="sort"
+          label="Sort"
+          value={sort}
+          onChange={(event) => setSort(event.target.value as Sort)}
+        >
+          {SORTS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

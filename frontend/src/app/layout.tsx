@@ -4,7 +4,10 @@ import { AgeGate } from "@/components/age-gate";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
+import { getCatalogue } from "@/lib/wp/catalog";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,7 +39,14 @@ export const metadata: Metadata = {
     "A headless vape storefront: Next.js and Tailwind on the front, WooCommerce and WPGraphQL behind it.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  /*
+    The mobile nav needs the same ranges the header shows. Reading them here rather than inside
+    the panel keeps `MobileNav` a plain client component, and costs nothing: `getCatalogue()` is
+    wrapped in React `cache()`, so the header's read and this one are the same read.
+  */
+  const categories = (await getCatalogue())?.categories ?? [];
+
   return (
     <html
       lang="en"
@@ -50,6 +60,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         {/*
+          First in the document on purpose: it is the first thing Tab reaches, and it is what
+          lets a keyboard visitor skip the wordmark, the five nav links and the cart on every page.
+        */}
+        <SkipLink />
+
+        {/*
           Runs before the first paint, long before React: it hides the age gate for a visitor
           who has already confirmed, so no returning visitor sees the shop flash behind it.
           `AGE_GATE_SCRIPT` explains itself.
@@ -57,7 +73,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: AGE_GATE_SCRIPT }} />
 
         <Header />
-        <main className="flex-1">{children}</main>
+        {/*
+          `id` and `tabIndex` together are what the skip link needs: the id is the target, and the
+          tab index is what moves focus there. Without it the page would scroll and leave focus on
+          the link itself, which reads as a skip link that does nothing.
+        */}
+        <main id="main-content" tabIndex={-1} className="flex-1">
+          {children}
+        </main>
         <Footer />
 
         {/*
@@ -65,6 +88,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           `backdrop-filter` would make it the containing block for anything `fixed` inside it.
         */}
         <CartDrawer />
+        <MobileNav categories={categories} />
         <AgeGate />
       </body>
     </html>

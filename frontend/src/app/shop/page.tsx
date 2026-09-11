@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
+import { Container } from "@/components/ui/container";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default async function ShopPage() {
   const { categories, products } = catalogue;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+    <Container className="py-10">
       <h1 className="text-3xl font-semibold text-ink-50 sm:text-4xl">Shop</h1>
       <p className="mt-2 max-w-2xl text-ink-200">
         The whole catalogue, read live from WooCommerce over GraphQL.
@@ -32,6 +33,6 @@ export default async function ShopPage() {
       <div className="mt-10">
         <ProductGrid products={products} />
       </div>
-    </div>
+    </Container>
   );
 }

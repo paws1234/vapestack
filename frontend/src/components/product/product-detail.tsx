@@ -33,7 +33,7 @@ function optionClasses(selected: boolean, available: boolean): string {
   }
 
   return available
-    ? "border-ink-700 text-ink-200 hover:border-ink-400"
+    ? "border-line text-ink-200 hover:border-ink-400"
     : "border-ink-800 text-ink-400 line-through";
 }
 

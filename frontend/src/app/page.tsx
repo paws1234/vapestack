@@ -2,6 +2,7 @@ import Link from "next/link";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { ProductCard } from "@/components/product/product-card";
 import { buttonStyles } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 export default async function Home() {
@@ -22,7 +23,7 @@ export default async function Home() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+    <Container>
       <section className="relative mt-8 overflow-hidden rounded-3xl border border-ink-800 bg-ink-900 px-6 py-16 sm:px-12 sm:py-24">
         <div
           aria-hidden
@@ -62,7 +63,7 @@ export default async function Home() {
             <Link
               key={category.slug}
               href={`/shop/${category.slug}`}
-              className="group rounded-2xl border border-ink-700 bg-ink-900 p-6 transition hover:border-neon-400/60"
+              className="group rounded-2xl border border-line bg-ink-900 p-6 transition hover:border-neon-400/60"
             >
               <p className="text-lg font-medium text-ink-50">{category.name}</p>
               <p className="mt-1 text-sm text-ink-400">
@@ -88,7 +89,7 @@ export default async function Home() {
           ))}
         </div>
       </section>
-    </div>
+    </Container>
   );
 }
 

@@ -4,17 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
+import { Field, TextAreaField } from "@/components/ui/field";
 import { Price } from "@/components/ui/price";
 import { writeDemoOrder } from "@/lib/demo-order";
 import { cartSubtotal, useCartStore } from "@/stores/cart";
-
-/** Shared look for every field. Height is added per element, so a textarea is not forced into it. */
-const FIELD_CLASSES = [
-  "w-full rounded-xl border border-ink-700 bg-ink-950 px-4 text-ink-50",
-  "placeholder:text-ink-400 focus:border-neon-400",
-].join(" ");
-
-const LABEL_CLASSES = "text-sm font-medium text-ink-200";
 
 /**
  * Reads a field out of the submitted form.
@@ -224,104 +217,49 @@ export function CheckoutForm() {
         </p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className={LABEL_CLASSES} htmlFor="firstName">
-              First name
-            </label>
-            <input
-              id="firstName"
-              name="firstName"
-              required
-              autoComplete="given-name"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field id="firstName" name="firstName" label="First name" required autoComplete="given-name" />
 
-          <div className="space-y-2">
-            <label className={LABEL_CLASSES} htmlFor="lastName">
-              Last name
-            </label>
-            <input
-              id="lastName"
-              name="lastName"
-              required
-              autoComplete="family-name"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field id="lastName" name="lastName" label="Last name" required autoComplete="family-name" />
 
-          <div className="space-y-2 sm:col-span-2">
-            <label className={LABEL_CLASSES} htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field
+            id="email"
+            name="email"
+            label="Email"
+            type="email"
+            required
+            autoComplete="email"
+            className="sm:col-span-2"
+          />
 
-          <div className="space-y-2 sm:col-span-2">
-            <label className={LABEL_CLASSES} htmlFor="address1">
-              Address
-            </label>
-            <input
-              id="address1"
-              name="address1"
-              required
-              autoComplete="address-line1"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field
+            id="address1"
+            name="address1"
+            label="Address"
+            required
+            autoComplete="address-line1"
+            className="sm:col-span-2"
+          />
 
-          <div className="space-y-2">
-            <label className={LABEL_CLASSES} htmlFor="city">
-              City
-            </label>
-            <input
-              id="city"
-              name="city"
-              required
-              autoComplete="address-level2"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field id="city" name="city" label="City" required autoComplete="address-level2" />
 
-          <div className="space-y-2">
-            <label className={LABEL_CLASSES} htmlFor="postcode">
-              Postcode
-            </label>
-            <input
-              id="postcode"
-              name="postcode"
-              required
-              autoComplete="postal-code"
-              className={`${FIELD_CLASSES} h-11`}
-            />
-          </div>
+          <Field id="postcode" name="postcode" label="Postcode" required autoComplete="postal-code" />
         </div>
       </section>
 
       <section className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
-        <label className={LABEL_CLASSES} htmlFor="note">
-          Order note (optional)
-        </label>
-        <textarea
+        <TextAreaField
           id="note"
           name="note"
+          label="Order note (optional)"
           rows={3}
           placeholder="Anything you would like on the order."
-          className={`${FIELD_CLASSES} mt-2 py-3`}
         />
       </section>
 
       {error ? (
         <p
           role="alert"
-          className="rounded-2xl border border-ink-700 bg-ink-900 px-4 py-3 text-sm text-ink-200"
+          className="rounded-2xl border border-danger/40 bg-ink-900 px-4 py-3 text-sm text-danger"
         >
           {error}
         </p>
