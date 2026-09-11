@@ -26,6 +26,13 @@ export type DemoOrderLine = {
 export type DemoOrder = {
   items: DemoOrderLine[];
   total: number;
+  /**
+   * The simulated method, in the same words WooCommerce records for a real order.
+   *
+   * `null` for a receipt written before the payment sandbox existed. Showing nothing there is the
+   * honest answer: this tab cannot say how a run it never recorded was paid for.
+   */
+  payment: string | null;
 };
 
 /**
@@ -66,9 +73,18 @@ export function parseDemoOrder(raw: string | null): DemoOrder | null {
   }
 
   try {
-    const parsed = JSON.parse(raw) as DemoOrder;
+    const parsed = JSON.parse(raw) as Partial<DemoOrder>;
 
-    return Array.isArray(parsed?.items) && "number" === typeof parsed.total ? parsed : null;
+    if (!Array.isArray(parsed?.items) || "number" !== typeof parsed.total) {
+      return null;
+    }
+
+    return {
+      items: parsed.items,
+      total: parsed.total,
+      /* Absent on a receipt from before the payment sandbox; `null` means "not recorded". */
+      payment: "string" === typeof parsed.payment ? parsed.payment : null,
+    };
   } catch {
     return null;
   }

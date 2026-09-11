@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
+import { OrderTimeline } from "@/components/checkout/order-timeline";
 import { buttonStyles } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
 import { parseDemoOrder, readDemoOrderRaw } from "@/lib/demo-order";
@@ -59,12 +60,31 @@ export function DemoOrderSummary() {
             <span className="text-ink-200">Total</span>
             <Price min={order.total} max={order.total} className="text-lg font-semibold text-neon-400" />
           </div>
+
+          {/*
+            The method the visitor chose, in the same words a real order records. The demo path is
+            checked out as honestly as the real one: the shop keeps no order here, so this line is
+            the only record of how it would have been paid for.
+          */}
+          {order.payment ? (
+            <p className="mt-3 text-sm text-ink-400">
+              Payment method that would have been recorded:{" "}
+              <span className="text-ink-200">{order.payment}</span>
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="mt-8 rounded-3xl border border-ink-800 bg-ink-900 px-6 py-4 text-ink-400">
           This tab has no demo receipt to show.
         </p>
       )}
+
+      {/*
+        The same timeline the real order page shows, keyed to `demo` so it can never be confused
+        with a real order's stage. It begins at the first stage: no order exists, so there is no
+        status of its own to start from.
+      */}
+      <OrderTimeline orderId="demo" startStage={0} />
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/shop" className={buttonStyles("primary", "md")}>

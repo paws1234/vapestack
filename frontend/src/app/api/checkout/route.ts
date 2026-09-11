@@ -5,8 +5,15 @@
  * told nothing but the new order's id and number. Nothing from the client is trusted except
  * product ids and quantities, which are resolved against the catalogue before WooCommerce is
  * asked to do anything, and priced by WooCommerce afterwards.
+ *
+ * **This route never sees a card.** The payment field is one of three published ids, checked
+ * against the same list the browser renders; there is no branch here that reads a number, an
+ * expiry or a code, and no field in {@link CheckoutRequest} that could hold one. The simulated
+ * 3-D Secure challenge completes in the browser before the request is made, and what it leaves
+ * behind is the word "card".
  */
 
+import { isPaymentMethodId } from "@/lib/payment-simulation";
 import { getProducts } from "@/lib/wp/catalog";
 import { createOrder, WooCommerceError } from "@/lib/wp/rest";
 import type { CheckoutRequest } from "@/lib/wp/types";
@@ -103,7 +110,7 @@ function parseRequest(body: unknown): CheckoutRequest {
     throw new BadRequest("The request body must be a JSON object.");
   }
 
-  const { items, billing, note } = body as Record<string, unknown>;
+  const { items, billing, note, payment } = body as Record<string, unknown>;
 
   if (!Array.isArray(items) || 0 === items.length) {
     throw new BadRequest("The cart is empty.");
@@ -172,6 +179,14 @@ function parseRequest(body: unknown): CheckoutRequest {
     throw new BadRequest("The order note is too long.");
   }
 
+  /*
+   * Checked against the same three ids the browser rendered, so the client cannot talk the shop
+   * into a method it has never heard of. A refusal here is a 400, exactly as a bad quantity is.
+   */
+  if (!isPaymentMethodId(payment)) {
+    throw new BadRequest("That payment method is not one this shop offers.");
+  }
+
   return {
     items: lines,
     billing: {
@@ -182,6 +197,7 @@ function parseRequest(body: unknown): CheckoutRequest {
       city: text(fields.city, "A city"),
       postcode: text(fields.postcode, "A postcode"),
     },
+    payment,
     note: orderNote,
   };
 }

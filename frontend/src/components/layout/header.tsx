@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { MobileNavButton } from "@/components/layout/mobile-nav-button";
+import { SearchButton } from "@/components/search/search-button";
 import { buttonStyles } from "@/components/ui/button";
 import type { Category } from "@/lib/wp/types";
 
@@ -47,6 +48,7 @@ export function Header({ categories }: { categories: Category[] }) {
             Shop all
           </Link>
 
+          <SearchButton />
           <MobileNavButton />
           <CartButton />
         </div>

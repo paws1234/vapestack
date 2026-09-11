@@ -205,6 +205,95 @@ of guessing from the text.
 Nothing in the hold animates, so it carries no `motion-reduce:` neighbour — the rule is about
 animations, not about states that change.
 
+### There are three overlays now, and one rule
+
+The search dialog is the third thing that covers the screen, so the one-overlay-at-a-time rule has
+to hold three ways rather than two.
+
+- **Each trigger closes the other two**, through the stores, exactly as the cart and the nav already
+did. `SearchButton` closes the nav and the cart before opening; the cart button and the mobile nav
+button both close search. There is no second mechanism and no provider.
+- **The panel is mounted by `app/layout.tsx`**, never inside `<header>`, and stays mounted with
+  `inert` while closed. Verified: closed, the panel is `inert`, its wrapper is `aria-hidden="true"`,
+  and it holds **0** tabbable controls.
+- **While one overlay is open its backdrop covers the header** (`z-50` over the header's `z-40`), so
+the pointer cannot reach another trigger. That is why the *reachable* way to start a second overlay
+is `Cmd/Ctrl+K` — which is precisely the path that closes the first. Measured at 390 across six
+  pairs, in both orders: exactly **one** dialog is open every time.
+- **`Cmd/Ctrl+K` is refused while the age gate is up.** The gate owns the screen until it is
+  answered, and it sets `data-age-gate="off"` on `<html>` when it is — so the shortcut reads that
+  attribute rather than keeping a second store in step. Measured with the gate showing: `searchOpen`
+  **false**, and the only non-`inert` dialog is the gate's own.
+
+**The dialog is a combobox, not a list of links.** The input keeps focus and the highlight moves by
+`aria-activedescendant` (`role="combobox"` + `role="listbox"`/`role="option"`), which is the
+standard shape and the only one where typing keeps working while arrow keys move a selection. Enter
+follows the highlighted result; Escape closes and `useModalBehaviour` hands focus back — to the
+trigger when the trigger opened it, and to wherever focus was when the shortcut did.
+
+**The query lives in the store, not in the dialog, and `open()` clears it.** Three things can open
+this dialog and the one thing that matters is that a fresh open starts empty; putting the reset in
+`open()` avoids an effect watching `isOpen`, which would be the `set-state-in-effect` lint error
+this project forbids.
+
+**Zero requests.** The index is built on the server from the catalogue read the layout already makes,
+and filtering it is a function call: typing six characters recorded **0** requests, and so did
+opening the dialog. A substring match over a lowercased string is enough for six products, and a
+fuzzy-matching dependency would need its own written decision.
+
+### A timeline says where it is, and the control that moves it says what it is
+
+- **Exactly one stage carries `aria-current="step"`**, at every width and on both the real order
+  page and the demo receipt. Reached stages also carry a drawn tick and an `sr-only` suffix
+  (`— current stage` / `— already reached` / `— not yet`), so progress never depends on colour.
+- **The reviewer control is not part of the order.** It is a dashed-outline button in its own block
+  with its own sentence — *"A reviewer control, not part of the order"* — and it is disabled at the
+  last stage. A disabled control stays in the layout (see the five-state rules above), relabelled
+  `Every stage reached`, so the end of the sequence is visible rather than the control vanishing.
+- **The log is the live region, not the stage list.** Announcing the whole `<ol>` on every step
+  would be noise; the `aria-live="polite"` log gains one line per advance, which is the thing worth
+  announcing. The same shape as the cart's hold and the reward ladder.
+- **The stage is persisted per order id**, keyed `vapestack-timeline:<id>`, so two orders never
+  share one, and read through `useSyncExternalStore` with a `getServerSnapshot` of "nothing
+  recorded" — the hydration rule the hold and the demo receipt also follow. A real order's own
+  WooCommerce status is a *floor*: a persisted stage can move it forward, never back.
+- **Advancing issues no request at all**, proved by counting them (0 across four clicks): the stage
+  lives in the browser and the WooCommerce order is never updated. There is no courier name, no
+  tracking number, no arrival date and no map in the copy, because none of those exist here.
+
+### The payment sandbox is a step machine, and the card never leaves the browser
+
+Three rules came out of the checkout's payment block, and they are rules rather than choices.
+
+1. **The flow is a written-down machine, exposed as `data-state`.** `lib/payment-simulation.ts`
+   holds the steps (`idle → validating → challenge → authorising → approved | declined`) and the
+   transitions each may make; the checkout form moves through `go(next)`, which refuses a step the
+   machine does not have. The payment `<section>` carries `data-state={step}`, so a test reads the
+   state instead of inferring it from which paragraph is on screen.
+2. **The card fields are uncontrolled and are read once.** `card-form.tsx` never puts a digit into
+   React state: the checkout form reads `cardName`/`cardNumber`/`cardExpiry`/`cardCvc` out of its
+   own `FormData` at submit, `validateCard` returns only *errors* and the outcome is derived by
+   `cardOutcome` — the digits go out of scope with the local object. The request body carries
+   `payment: "card"` and nothing else. Fields carry `autoComplete="off"` and `inputMode="numeric"`
+   and deliberately **no** `autocomplete="cc-number"`.
+3. **Only the chosen method's fields are in the DOM.** The panel is keyed on the selection, so
+   switching method unmounts the card inputs. There is nowhere for a typed number to be left behind.
+
+**A `required` control in an always-mounted, `inert` dialog is a bug.** The 3-D Secure dialog stays
+mounted so it can be `inert` when closed (the same reason the drawer and the nav do), and a
+`required` input inside it makes the browser refuse to submit the *checkout* form with *"An invalid
+form control with name='tdsCode' is not focusable"* — the payment never starts. The empty code is
+refused by the dialog's own message instead. Verified while building T3.
+
+**Escape cancels the challenge; it does not refuse to close.** The dialog is a retryable step, not a
+question that must be answered like the age gate, so `useModalBehaviour` is given a real `onEscape`
+that returns to the form: the cart is untouched, no order exists and the typed details are still
+where the visitor left them. Cancel does the same thing.
+
+**A decline is a designed state, not an error page.** It is rendered as a `role="alert"` block in the
+form, the submit button says "Try another card", and the dialog closes — there is no dead end and
+nothing is silently swallowed.
+
 ### A ladder is a pure function, and its track is a boundary
 
 The drawer's spend ladder is `rewardProgress(subtotal)` in `lib/cart-rewards.ts`: a number in, a
@@ -256,7 +345,7 @@ Two things about it are rules rather than choices:
 A transition may never be the thing that makes a change understandable. Every animation carries a
 `motion-reduce:` neighbour and the state still changes, it just stops moving.
 
-There are exactly **three** things in this app that move, and each is guarded. `grep -rn
+There are exactly **five** things in this app that move, and each is guarded. `grep -rn
 "animate-\|duration-" src/` is the check, and every hit that is not a pure colour transition is in
 this table:
 
@@ -267,6 +356,8 @@ this table:
 | Mobile nav panel slides in | `300ms`, `ease-out` | `motion-reduce:transition-none` |
 | Mobile nav backdrop fades | `300ms`, default easing | `motion-reduce:transition-none` |
 | Product card image zooms on hover | `500ms`, default easing | `motion-safe:group-hover:scale-105` **plus** `motion-reduce:duration-0` |
+| 3-D Secure dialog and its backdrop fade in | `300ms`, default easing | `motion-reduce:transition-none` (`transitionProperty` measured as `none` under `prefers-reduced-motion: reduce`, and the steps still change) |
+| Search dialog and its backdrop fade in | `300ms`, default easing | `motion-reduce:transition-none` |
 
 Note the shape of the card's guard: the zoom is written as `motion-safe:` so there is no transform
 to animate at all under reduced motion, and `duration-0` is kept alongside it because the

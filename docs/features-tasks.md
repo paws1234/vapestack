@@ -303,7 +303,36 @@ report `scrollWidth === clientWidth` at 390; confirm each PNG with `file`.
 
 ---
 
-## T3 — Payment methods: selector, card form, method in the request — `[ ]`
+## T3 — Payment methods: selector, card form, method in the request — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/f3/verify-t3.cjs` + `report-t3.json` (Playwright 1.62 against the
+> dev server on **3000**), plus curl and a `grep` of the route.
+> **The three methods are a native radio group** (`type="radio"`, name `payment`) and the block
+> reports `data-payment-method`. With Card chosen the DOM holds `cardName, cardNumber, cardExpiry,
+> cardCvc`; with QR or Cash chosen it holds **`[]`** — the fields are unmounted, not hidden — and
+> the section's `data-state` is `idle` in every case. `overflow` **0** at all three widths.
+> **The request carries the id and nothing else.** Typing `4242 4242 4242 4242`, `12/30`, `737` and
+> submitting → `data-state="challenge"`, and **0** POSTs to `/api/checkout`. Authorising with
+> `123456` → **1** POST, body
+> `{"items":[{"productId":60,"variationId":61,"quantity":1}],"billing":{…},"payment":"card","note":""}`
+> — the number `4242 4242 4242 4242` appears **nowhere** in it, and neither does any field named
+> for a card, an expiry, a CVC or an OTP. The only match for "card" is the method id itself.
+> **The API is the source of truth.** `curl` of `/api/checkout`: unknown method (`"bitcoin"`) →
+> **400** `That payment method is not one this shop offers.`; the same body with `"qr"` → **200**
+> `{"id":104,"number":"104"}`; no `payment` field at all → **400**. `grep -n "card\|cvc\|pan\b\|expiry"
+> app/api/checkout/route.ts` matches **only the doc comment** that says the route never sees one.
+> **Labelled as a simulation**: the `Simulation` pill is in the block, the test numbers and what
+> they do are printed (`4242 …` → challenges; `4000 … 0002` → declined; `123456` → the code), and
+> the three method cards carry `checked` on exactly one at a time. No brand logo and no padlock.
+> Shots `/tmp/ui/f3/payment-{card,qr,cod}-{1440,768,390}.png`, nine files, `file` reports 1440x900,
+> 768x1024 and 390x844.
+>
+> TRAP worth keeping: **a `required` control inside the always-mounted `inert` dialog stops the
+> checkout form dead.** The 3-D Secure dialog has to stay mounted to be `inert` when closed (the
+> same reason the drawer and the nav do), and a `required` input in it made the browser refuse to
+> submit with `An invalid form control with name='tdsCode' is not focusable` — the payment silently
+> never started. The empty code is refused by the dialog's own message instead, and the rule is in
+> `UI-STANDARDS.md`.
 
 **Goal** — The checkout asks how you want to pay, the fields change with the answer, and the method
 travels to the API as an id — with no card data ever leaving the browser.
@@ -365,7 +394,31 @@ Screenshots of each method selected at three widths.
 
 ---
 
-## T4 — Simulated 3-D Secure challenge and the declined path — `[ ]`
+## T4 — Simulated 3-D Secure challenge and the declined path — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/f4/verify-t4.cjs` + `report-t4.json`, Playwright against the dev
+> server on **3000**. Both sandbox cards, three widths, plus a reduced-motion run.
+> **`4242` reaches `data-state="challenge"`** at 1440, 768 and 390, with **0** POSTs to
+> `/api/checkout`, focus already inside the dialog (`activeElement` is `#tds-code`) and
+> `body.style.overflow` = `hidden`. A wrong code (`999999`) is **refused in place**: the dialog
+> stays open, the message is `That is not the code this simulation accepts. It is printed below the
+> field.`, the field is still editable and the POST count is still **0**. The printed code
+> (`123456`) completes to `/checkout/success/105`, `/106`, `/107` — **1** POST each, heading
+> `Order placed`.
+> **`4000 0000 0000 0002` reaches `data-state="declined"` with `0` POSTs at every width**, the URL
+> still `/checkout`, the alert reading `The simulated issuer declined this card. No order was
+> created and nothing was charged.`, the submit button relabelled `Try another card`, no dialog
+> open, and the cart still holding its 1 line. **Order count 12 → 16**: the four new orders are
+> 105–108, exactly the four runs that passed the challenge — the three declined runs created none.
+> **Focus**: Tab cycles `Authorise → Cancel → tds-code` and never leaves the dialog (`escaped:
+> false`); Shift+Tab from the first control stays inside. **Escape cancels**: `data-state="idle"`,
+> the dialog `inert` again, `body` overflow restored, focus back on the **submit button**
+> (`focusIsSubmit: true`), **0** POSTs — the chosen behaviour, and it is written down in both the
+> component and `UI-STANDARDS.md`.
+> **Reduced motion**: `transitionProperty` computes to **`none`** while the steps still change and
+> the flow reaches `/checkout/success/108` — nothing slides or pulses.
+> Shots `/tmp/ui/f4/{challenge,refused,approved,declined}-{1440,768,390}.png`, twelve files, `file`
+> reports 1440x900, 768x1024 and 390x844.
 
 **Goal** — The card path shows a challenge step that can be failed and passed, and a declined card
 creates nothing.
@@ -421,7 +474,26 @@ and after the declined run and show the count unchanged.
 
 ---
 
-## T5 — Record the simulated method on the order and the receipt — `[ ]`
+## T5 — Record the simulated method on the order and the receipt — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/f5/verify-t5.cjs`, Playwright against the dev server on **3000**,
+> plus `wpdev wp eval` and `curl`.
+> **The order records it.** A card order placed through the browser's own challenge — order **109**
+> — reads back from WooCommerce as
+> `method=vapestack_card title=Simulated card payment (demo)`. The same body posted with `"qr"` and
+> `"cod"` gave **110** `vapestack_qr / Simulated QR payment (demo)` and **111**
+> `vapestack_cod / Simulated cash on delivery (demo)`. Read with WP-CLI, not from the browser, and
+> all three titles say the payment was simulated.
+> **The demo receipt carries the same value.** With WordPress stopped (`wpdev down`; `/wp-json/`
+> answered **000**) a `cod` run reached `/checkout/success/demo` — "Nothing was ordered" — and the
+> receipt reads `Payment method that would have been recorded: Simulated cash on delivery (demo)`.
+> The order count was **19** before that run and **19** after it: no order was created, and nothing
+> on the page claims one was. Two shots, `file` reports 1440x900 for both.
+>
+> `payment_method` and `payment_method_title` are fields the WooCommerce REST API has always
+> accepted, so no order meta key was invented. The recorded strings live in `payment-simulation.ts`
+> beside the methods themselves, which is what stops the receipt and the shop's own record from
+> drifting apart.
 
 **Goal** — An order created through the UI says which method was simulated, on WooCommerce's own
 record and on the demo receipt.
@@ -473,7 +545,29 @@ method off the success page. Report both, and the `tsc` result.
 
 ---
 
-## T6 — Post-purchase timeline — `[ ]`
+## T6 — Post-purchase timeline — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/f6/verify-t6.cjs` + `report-t6.json`, Playwright against the dev
+> server on **3000**. The real order page (`/checkout/success/109`) and the demo receipt, at three
+> widths.
+> **Four stages in order, exactly one `aria-current="step"`** — `ariaCurrentCount` is **1** before
+> and after advancing, on both paths, at every width. Stages also carry a tick and an `sr-only`
+> suffix (`— current stage` / `— already reached` / `— not yet`), so progress is not colour-only.
+> **The control advances one at a time and stops**: click 1 → `current` 1, 2 → 2, 3 → 3, and the
+> fourth click found the control **disabled** with the label `Every stage reached`. The log gained
+> exactly one line per advance (`Quality check — simulated at 18:27:09`, `Dispatched — …`, `Out for
+> delivery — …`) inside the `aria-live="polite"` region.
+> **A reload keeps the stage**: after three advances `data-timeline-current` was **3** again after
+> `page.reload()`; the log is per-visit by design and read 0 lines. **A different order id starts at
+> the first stage**: `/checkout/success/110` read `data-timeline-order="110"`,
+> `data-timeline-current=0`, and order 109's stage was not inherited. The demo receipt is its own
+> key (`data-timeline-order="demo"`) and started at 0.
+> **Advancing issues no request**: `page.on("request")` counted **0** across the four clicks at all
+> three widths, on both paths. **Overflow 0** at 390 on both paths. The statement *"Nothing ships
+> from this shop, so there is no courier, no tracking number and no delivery date"* is present in
+> every reading, next to a `Simulation` pill.
+> Shots `/tmp/ui/f6/{real-first,real-last,demo-first,demo-last}-*.png`, ten files, `file` reports
+> 1440x900, 768x1024 and 390x844.
 
 **Goal** — The order page shows four stages with the current one marked, and a clearly-marked
 reviewer control moves it along, persisted per order.
@@ -528,7 +622,44 @@ Screenshots of the first and last stage at each width, confirmed with `file`.
 
 ---
 
-## T7 — Search dialog over a client-side index — `[ ]`
+## T7 — Search dialog over a client-side index — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/f7/verify-t7.cjs`, `verify-t7b.cjs` + `report-t7.json`,
+> `report-t7b.json`, Playwright against the dev server on **3000**.
+> **`Cmd/Ctrl+K` opens it from `/`, `/shop` and `/product/neon-rush-6000`** — `inert: false`, the
+> only non-`inert` dialog is `search-dialog`, focus already on `#search-input`. The header trigger
+> opens it for a pointer as well, and its accessible name is
+> `Search the shop (Command or Control K)`, with `aria-keyshortcuts="Control+K Meta+K"`.
+> **Typing costs nothing**: open + six characters recorded **0** requests (`requestsDuringTyping: 0`,
+> `requestsDuringOpenAndType: 0`).
+> **It filters products, ranges and options.** `mint` → `Frost Mint` (Option — Frost Rush 3000),
+> `Frost Mint` (Option — Neon Rush 6000), `Frost Rush 3000` (Product — Disposables), `Neon Rush 6000`
+> (Product). `disposables` → **Range** first, then its products, then options. `kit` → both pod kits,
+> then the `Pod Kits` **Range**, then the kit colours. `frost` matches products, options and more.
+> A typed miss (`zzzzzz`) is a **designed empty state**: `No matches for “zzzzzz”.` with a
+> `Browse the whole shop` way out — not an empty list, and not the same state as the prompt shown
+> before anything is typed.
+> **Keyboard**: `aria-activedescendant` `search-result-0` → ArrowDown → `search-result-1` →
+> ArrowUp → `search-result-0` → Enter → `/product/neon-rush-6000`. Escape closes (`inert: true`,
+> 0 open dialogs) and hands focus back to the **trigger** (`BUTTON`, `aria-label="Search the shop
+> (Command or Control K)"`); opened by shortcut it returns focus where it came from, as the plan
+> allows.
+> **One overlay at a time, all six pairs, both orders**, measured at 390 as the number of
+> non-`inert` dialogs: cart→shortcut **1** (`search-dialog`), nav→shortcut **1**, search→cart
+> **1** (`cart-drawer-title`), search→nav **1**, nav→cart **1**, cart→nav **1**. The reachable way
+> to start a second overlay is the shortcut, because an open overlay's backdrop covers the header;
+> the trigger-to-trigger direction was driven through the same click handlers a pointer would fire.
+> **Closed it is unreachable**: `inert`, wrapper `aria-hidden="true"`, **0** tabbable controls inside.
+> **Not over the age gate**: with the gate showing and `data-age-gate` absent, `Control+K` left
+> `searchOpen` **false** and the gate's own dialog the only open one.
+> **No new dependency**: `package.json` still lists exactly `next`, `react`, `react-dom`, `zustand`.
+> Shots `/tmp/ui/f7/{open,filtered,empty}-{1440,768,390}.png`, nine files, `file` reports 1440x900,
+> 768x1024 and 390x844, `overflow` **0** at 390 in every state.
+>
+> Decision recorded here because the plan left it open: **`stores/search.ts` is its own store**, not
+> an extension of `stores/nav.ts`. The nav's state is one boolean; search also carries a query and a
+> highlight that must be cleared together on open, and folding that into the nav store would give the
+> nav a query it has no use for.
 
 **Goal** — `Cmd/Ctrl+K` opens a dialog that filters the catalogue as you type, with no request per
 keystroke and no new dependency.
@@ -591,7 +722,87 @@ each time. Screenshots of open, filtered and empty results at three widths, conf
 
 ---
 
-## T8 — Sweep: new states at three widths, keyboard, contrast, offline build — `[ ]`
+## T8 — Sweep: new states at three widths, keyboard, contrast, offline build — `[x]` done
+
+> verified 2026-09-11. WordPress up (port 8889), dev server on **3000**, and the sweep itself run
+> against the **production build** served by `next start` on **3001** — `next dev` injects a
+> focusable dev-tools portal that steals the first Tab and makes a correct skip link look broken.
+> Scripts `/tmp/ui/t8/{sweep,contrast,hydration}.cjs`; the state shots are the ones each task took.
+>
+> **Routes.** All 15 at 1440x900, 768x1024 and 390x844 — 12 answering **200**, and
+> `/product/does-not-exist`, `/shop/does-not-exist`, `/totally-unknown-route` answering **404 at
+> every width**. **One `h1` per page** everywhere, **zero horizontal overflow** on all 45
+> route/width pairs, and no heading-level skips anywhere. 45 screenshots in `/tmp/ui/t8/`, `file`
+> reports the three expected sizes for every one.
+>
+> **The sweep found one real regression from the earlier UI pass, and it is fixed here.** `/shop`
+> went `h1 → h3`: the page's `h1` was the listing's title and the product cards' names are `h3`s,
+> with no heading for the grid between them. `ProductGrid` now renders an `sr-only` `<h2>Products</h2>`
+> — the outline is what needs it, and a visible "Products" under "Shop" would be noise. Re-measured:
+> **no heading skips at any width**, `h1` count 1.
+>
+> **Keyboard.** First Tab lands on `<a href="#main-content">Skip to content</a>`, and Enter moves
+> focus to `#main-content`. Escape from each of the three overlays closes it and returns focus to
+> **its own trigger** — `Cart, 1 item`, `Open menu`, `Search the shop (Command or Control K)` — with
+> 0 dialogs left open and overflow 0 in every case.
+>
+> **Contrast, re-measured in the browser on the production build: 31 checks, 0 failures.** The T15
+> rows are unchanged (`--color-line` 3.37:1 on ink-950 / 3.27:1 on ink-900). The new rows all pass:
+> cart hold banner border **3.27**, reward-ladder track (measured as a *surface*, not a border)
+> **3.27**, header search button **3.37**, payment card unselected **3.27** / selected **16.06**,
+> card number input **3.33**, 3DS dialog **3.37**, 3DS code input **16.06**, timeline marker not-yet
+> **3.27** / current **16.06**, reviewer button **3.27**, search dialog **3.37**, search input
+> **16.06**; text all ≥5.24 on its own surface.
+>
+> **The four extra checks.**
+> 1. **Honesty** — `grep` for a claim of a real payment or shipment across the new copy returns
+>    **nothing**, and every new surface carries a `Simulation` label or the sentence that says what
+>    is simulated. Widened to the whole `src/` for phrases like "payment taken", "we ship", "will
+>    arrive": no hits.
+> 2. **The leak check** — the captured request body carries `payment:"card"` and no card field or
+>    OTP (T3); the declined card issues **0** POSTs (T4); `grep` of the route for card handling
+>    matches only the comment saying it never sees one.
+> 3. **Zero-request search** — opening the dialog and typing six characters recorded **0** requests
+>    (T7), and the index is built from the catalogue read the layout already makes.
+> 4. **Hydration** — console listeners attached before a reload, with a cart, a hold deadline, a
+>    persisted timeline stage and a demo receipt already in storage: **0 messages, 0 React warnings**
+>    on `/`, `/shop`, `/checkout`, `/checkout/success/109` and `/checkout/success/demo`. The
+>    timeline read `2` on order 109 and `0` on the demo receipt after the reload, so the per-order
+>    key works *and* hydrates quietly.
+>
+> **Commands.** `npm run build` clean; `npx tsc --noEmit` exit **0**; `npm run lint` clean. The
+> build was then repeated **with WordPress stopped** (`wpdev down`, `/wp-json/` answering **000**)
+> after `rm -rf frontend/.next`, and succeeded: only `opengraph-image`, `robots.txt` and
+> `sitemap.xml` are static, every application route is `ƒ (Dynamic)`, so nothing is fetched at build
+> time. WordPress and the dev server were restored afterwards.
+>
+> **The plan's Done-when list: 7 true, 1 false.**
+>
+> | # | Item | Result | Evidence |
+> | --- | --- | --- | --- |
+> | 1 | Hold, countdown, designed expiry with Extend, copy says simulated | **true** | T1 |
+> | 2 | Ladder driven by `cartSubtotal`, **and whatever the tiers promise is something the shop really does** | **false** | T2 |
+> | 3 | Three methods, simulated 3-D Secure, decline creates no order, method recorded, no card digit leaves the browser | **true** | T3, T4, T5 |
+> | 4 | Four-stage timeline on both paths, marked reviewer control, stage persisted per order, nothing ships stated | **true** | T6 |
+> | 5 | `Cmd/Ctrl+K` search with zero requests, keyboard navigable, one overlay at a time across three | **true** | T7 |
+> | 6 | `npm run build`, `tsc --noEmit`, `npm run lint` clean; the build still runs with WordPress stopped | **true** | T8 |
+> | 7 | Every route and new state at three widths, real dimensions, zero horizontal overflow | **true** | T1–T8, 104 PNGs |
+> | 8 | `UI-STANDARDS.md` and `frontend/README.md` describe what now exists | **true** | every task |
+>
+> **The false one is the finding, and it is not a defect to fix.** Item 2's second clause — the
+> tiers promise things the shop really does — was settled *against* in Phase 0: F2's decision was
+> the **simulated band**, because making tier 1 a real WooCommerce coupon was the bigger, better
+> option the owner could still take. So the ladder promises free express shipping and a free lanyard
+> that this shop does not provide, and the only thing making that honest is the `Simulation` pill
+> plus the sentence in the same block. **If the owner wants that clause true, it is the F2 fork in
+> `docs/features-plan.md`, not a bug in T2** — and taking it turns T2 into an L that needs the coupon
+> created with WP-CLI and applied through the REST route.
+>
+> One more thing the sweep turned up and deliberately did **not** fix: an open overlay's backdrop
+> covers the header (`z-50` over `z-40`), so with the cart drawer up the pointer cannot reach the
+> search or menu triggers. The shortcut reaches them and closes the drawer, and every trigger closes
+> the other two, so one overlay at a time still holds — but the pointer path needs two clicks. That
+> is a design decision rather than a fault, and it is recorded in `UI-STANDARDS.md`.
 
 **Goal** — Every new state is shown working at three widths with the evidence reported, and nothing
 the last pass proved has regressed.

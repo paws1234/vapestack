@@ -2,11 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { PaymentMethods } from "@/components/checkout/payment-methods";
+import { ThreeDSecure } from "@/components/checkout/three-d-secure";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Field, TextAreaField } from "@/components/ui/field";
 import { Price } from "@/components/ui/price";
 import { writeDemoOrder } from "@/lib/demo-order";
+import {
+  DEFAULT_PAYMENT_METHOD,
+  STEP_MESSAGES,
+  canTransition,
+  cardOutcome,
+  digitsOnly,
+  isCardValid,
+  paymentMethod,
+  validateCard,
+  type CardErrors,
+  type PaymentMethodId,
+  type PaymentStep,
+} from "@/lib/payment-simulation";
+import type { CheckoutRequest } from "@/lib/wp/types";
 import { cartSubtotal, useCartStore } from "@/stores/cart";
 
 /**
@@ -42,12 +58,28 @@ function hydrationOnServer(): boolean {
   return false;
 }
 
+/** The billing details and note, held across the challenge step while the card is authorised. */
+type HeldCheckout = {
+  billing: CheckoutRequest["billing"];
+  note: string;
+};
+
 /**
  * The checkout form.
  *
  * The order is created by the route and priced by WooCommerce, so every number shown here is for
  * display and the cart is emptied only once an order exists. A failure leaves the cart alone: the
  * visitor keeps what they had and can try again.
+ *
+ * The payment block is a small step machine (`idle → validating → challenge → authorising →
+ * approved | declined`), written down in `lib/payment-simulation.ts` rather than left to whichever
+ * `setState` happens to run, and exposed as `data-state` so an acceptance test reads a state
+ * instead of guessing one from the DOM.
+ *
+ * **The card never leaves this page.** The number, the expiry and the code are read out of the
+ * form's own `FormData` at the moment they are checked, and what survives is a single word —
+ * `card`, `qr` or `cod`. The billing details are held across the challenge because they do have to
+ * be posted; the card fields deliberately are not, so there is nothing to post.
  */
 export function CheckoutForm() {
   const router = useRouter();
@@ -56,8 +88,14 @@ export function CheckoutForm() {
 
   const hydrated = useSyncExternalStore(subscribeToHydration, isHydrated, hydrationOnServer);
 
+  const [method, setMethod] = useState<PaymentMethodId>(DEFAULT_PAYMENT_METHOD);
+  const [step, setStep] = useState<PaymentStep>("idle");
+  const [cardErrors, setCardErrors] = useState<CardErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** What the visitor filled in, kept across the challenge. Never holds a card field. */
+  const held = useRef<HeldCheckout | null>(null);
 
   /*
     The drawer rehydrates the store on mount, but this form is the thing that must not be wrong
@@ -68,22 +106,36 @@ export function CheckoutForm() {
   }, []);
 
   const subtotal = cartSubtotal(items);
+  const declined = "declined" === step;
+  /* The dialog stays up while the request is in flight, so the visitor sees it working. */
+  const inChallenge = "challenge" === step || "authorising" === step;
 
   /**
-   * Posts the basket and, once an order exists, empties the cart and shows it.
+   * Moves the step machine on, refusing a transition it does not have.
    *
-   * @param event The form's submit event.
+   * Guarded rather than trusted: a step can only be reached from a step that leads to it, so the
+   * flow cannot jump from `idle` straight to `approved` however the handlers are rearranged later.
+   *
+   * @param next Step to move to.
    */
-  async function placeOrder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function go(next: PaymentStep): void {
+    setStep((current) => (canTransition(current, next) ? next : current));
+  }
 
-    /* The button is disabled while this runs; a keyboard submit is the way past the button. */
-    if (isSubmitting) {
+  /**
+   * Posts the held basket and, once an order exists, empties the cart and shows it.
+   *
+   * The only caller of the API, and it is only ever reached from an approved simulation or from a
+   * method that has no challenge to pass.
+   */
+  async function authorise(): Promise<void> {
+    const pending = held.current;
+
+    if (!pending) {
       return;
     }
 
-    const data = new FormData(event.currentTarget);
-
+    go("authorising");
     setIsSubmitting(true);
     setError(null);
 
@@ -97,15 +149,9 @@ export function CheckoutForm() {
             variationId,
             quantity,
           })),
-          billing: {
-            firstName: field(data, "firstName"),
-            lastName: field(data, "lastName"),
-            email: field(data, "email"),
-            address1: field(data, "address1"),
-            city: field(data, "city"),
-            postcode: field(data, "postcode"),
-          },
-          note: field(data, "note"),
+          billing: pending.billing,
+          payment: method,
+          note: pending.note,
         }),
       });
 
@@ -127,6 +173,8 @@ export function CheckoutForm() {
             total: line.unitPrice * line.quantity,
           })),
           total: subtotal,
+          /* The same words the shop would have recorded, so the two paths cannot disagree. */
+          payment: paymentMethod(method).recorded,
         });
 
         clear();
@@ -138,6 +186,7 @@ export function CheckoutForm() {
       if (!response.ok || "number" !== typeof payload?.id) {
         setError(payload?.error ?? "The order could not be created. Please try again.");
         setIsSubmitting(false);
+        go("idle");
 
         return;
       }
@@ -146,12 +195,87 @@ export function CheckoutForm() {
         Only now, and the loading state is deliberately left on: this form is about to be replaced
         by the success page, and clearing the flag would flash the empty-cart notice in between.
       */
+      go("approved");
       clear();
       router.push(`/checkout/success/${payload.id}`);
     } catch {
       setError("The checkout could not be reached. Check your connection and try again.");
       setIsSubmitting(false);
+      go("idle");
     }
+  }
+
+  /**
+   * Validates what was typed, then starts the right flow for the chosen method.
+   *
+   * @param event The form's submit event.
+   */
+  function placeOrder(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+
+    /* The button is disabled while this runs; a keyboard submit is the way past the button. */
+    if (isSubmitting) {
+      return;
+    }
+
+    const data = new FormData(event.currentTarget);
+
+    const billing: CheckoutRequest["billing"] = {
+      firstName: field(data, "firstName"),
+      lastName: field(data, "lastName"),
+      email: field(data, "email"),
+      address1: field(data, "address1"),
+      city: field(data, "city"),
+      postcode: field(data, "postcode"),
+    };
+
+    const note = field(data, "note");
+
+    setError(null);
+
+    if ("card" === method) {
+      const fields = {
+        name: field(data, "cardName"),
+        number: field(data, "cardNumber"),
+        expiry: field(data, "cardExpiry"),
+        cvc: field(data, "cardCvc"),
+      };
+
+      const errors = validateCard(fields, Date.now());
+
+      setCardErrors(errors);
+
+      if (!isCardValid(errors)) {
+        /* Still `idle`: nothing was submitted, and the messages are on the fields themselves. */
+        go("idle");
+
+        return;
+      }
+
+      /*
+        The number is read once, here, to decide which sandbox card this is - and then the digits
+        go out of scope with `fields`. What is kept is the outcome, not the card.
+      */
+      const outcome = cardOutcome(digitsOnly(fields.number));
+
+      held.current = { billing, note };
+      go("validating");
+
+      if ("declined" === outcome) {
+        go("declined");
+
+        return;
+      }
+
+      go("challenge");
+
+      return;
+    }
+
+    /* QR and cash on delivery have nothing to challenge, so they go straight to the request. */
+    held.current = { billing, note };
+    go("validating");
+    void authorise();
   }
 
   if (!hydrated) {
@@ -246,6 +370,36 @@ export function CheckoutForm() {
         </div>
       </section>
 
+      {/*
+          `data-state` is the machine's own state, so an acceptance test reads `declined` rather
+          than inferring it from which paragraph happens to be on screen.
+        */}
+      <section data-state={step} className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
+        <h2 className="text-lg font-semibold text-ink-50">How you would pay</h2>
+
+        <div className="mt-4">
+          <PaymentMethods
+            value={method}
+            onChange={(next) => {
+              setMethod(next);
+              setCardErrors({});
+              /* Changing the method abandons a decline; there is nothing else to reset. */
+              go("idle");
+            }}
+            cardErrors={cardErrors}
+          />
+        </div>
+
+        {/*
+            The step's own sentence, in a live region: it is the thing that changes on its own and
+            the only part of the flow worth interrupting for. `STEP_MESSAGES` holds the copy, so the
+            state and what it says cannot drift apart.
+          */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {STEP_MESSAGES[step]}
+        </p>
+      </section>
+
       <section className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
         <TextAreaField
           id="note"
@@ -255,6 +409,15 @@ export function CheckoutForm() {
           placeholder="Anything you would like on the order."
         />
       </section>
+
+      {declined ? (
+        <p
+          role="alert"
+          className="rounded-2xl border border-danger/40 bg-ink-900 px-4 py-3 text-sm text-danger"
+        >
+          {STEP_MESSAGES.declined}
+        </p>
+      ) : null}
 
       {error ? (
         <p
@@ -267,7 +430,7 @@ export function CheckoutForm() {
 
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? "Placing the order…" : "Place the demo order"}
+          {isSubmitting ? "Placing the order…" : declined ? "Try another card" : "Place the demo order"}
         </Button>
 
         <Link
@@ -278,6 +441,18 @@ export function CheckoutForm() {
           Keep shopping
         </Link>
       </div>
+
+      {/*
+          A step of the checkout rather than a separate overlay: it is rendered here, inside the
+          form, and the drawer and the nav are nowhere in this flow. It carries `inert` while
+          closed, so a hidden dialog cannot be tabbed into.
+        */}
+      <ThreeDSecure
+        open={inChallenge}
+        busy={"authorising" === step}
+        onApprove={() => void authorise()}
+        onCancel={() => go("idle")}
+      />
     </form>
   );
 }

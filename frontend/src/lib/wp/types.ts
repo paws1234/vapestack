@@ -6,6 +6,8 @@
  * an inline fragment.
  */
 
+import type { PaymentMethodId } from "@/lib/payment-simulation";
+
 /** Whether something can be bought right now. */
 export type StockStatus = "in-stock" | "out-of-stock";
 
@@ -90,6 +92,13 @@ export type CheckoutRequest = {
     city: string;
     postcode: string;
   };
+  /**
+   * Which simulated method was chosen.
+   *
+   * An id and nothing else: no card number, no expiry and no code from the simulated challenge
+   * ever reaches this route, which is why the type has nowhere to put one.
+   */
+  payment: PaymentMethodId;
   /** Optional note attached to the order. */
   note?: string;
 };

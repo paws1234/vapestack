@@ -10,6 +10,7 @@
  * session-token plumbing for no portfolio-visible gain.
  */
 
+import { paymentMethod } from "@/lib/payment-simulation";
 import type { CheckoutRequest, OrderSummary, OrderSummaryLine } from "./types";
 import { unreachable, UpstreamUnavailableError } from "./upstream";
 
@@ -148,16 +149,23 @@ async function wpRest<TData>(
  * its own catalogue and a tampered client cannot decide what it costs. The order is left unpaid,
  * because this is a demo and no money moves.
  *
+ * The payment the visitor chose is recorded as WooCommerce's own `payment_method` and
+ * `payment_method_title`, which the REST API has always accepted - no order meta key was invented
+ * for this. Both strings come from `payment-simulation.ts` and both say the payment was simulated,
+ * so the shop's own record cannot be read as a real transaction either.
+ *
  * @param request Validated checkout request.
  * @returns The new order's id and number, and nothing else about it.
  */
 export async function createOrder(request: CheckoutRequest): Promise<{ id: number; number: string }> {
+  const payment = paymentMethod(request.payment);
+
   const order = await wpRest<RawOrder>("/orders", {
     method: "POST",
     body: {
       status: "processing",
-      payment_method: "cod",
-      payment_method_title: "Cash on delivery (demo)",
+      payment_method: payment.slug,
+      payment_method_title: payment.recorded,
       set_paid: false,
       billing: {
         first_name: request.billing.firstName,

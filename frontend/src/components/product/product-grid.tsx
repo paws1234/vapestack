@@ -42,6 +42,14 @@ export function ProductGrid({ products, sort }: { products: Product[]; sort: Sor
 
   return (
     <div>
+      {/*
+        The page's own `h1` is the listing's title, so the grid needs a heading of its own or the
+        cards' `h3`s jump a level. It is `sr-only` because a visible "Products" under "Shop" is
+        noise: it is here for the document outline and for anyone navigating by heading, which is
+        the only audience that needs it. Found by the T8 sweep (h1 → h3 on /shop and /shop/<range>).
+      */}
+      <h2 className="sr-only">Products</h2>
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         {/*
           Announced, because sorting changes this number without a navigation: the select pushes a

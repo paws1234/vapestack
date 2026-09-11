@@ -5,8 +5,10 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { SearchDialog } from "@/components/search/search-dialog";
 import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
+import { buildSearchIndex } from "@/lib/search-index";
 import { siteUrl } from "@/lib/site";
 import { getCatalogue } from "@/lib/wp/catalog";
 import "./globals.css";
@@ -80,7 +82,16 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const categories = (await getCatalogue())?.categories ?? [];
+  const catalogue = await getCatalogue();
+  const categories = catalogue?.categories ?? [];
+
+  /*
+    The search index comes from the read above - no second fetch, no route handler and nothing at
+    build time. It is deliberately slim: an entry is a name, where it goes and the words that find
+    it. The products' HTML descriptions stay on the server, where they are not paid for on every
+    page.
+  */
+  const searchIndex = buildSearchIndex(catalogue?.products ?? [], categories);
 
   return (
     <html
@@ -109,11 +120,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <Footer />
 
         {/*
-          Both overlays live outside `<header>`: that element is `backdrop-blur`, and a
+          The three overlays live outside `<header>`: that element is `backdrop-blur`, and a
           `backdrop-filter` would make it the containing block for anything `fixed` inside it.
+          All three stay mounted, `inert` while closed, so a hidden panel can never be tabbed into.
         */}
         <MobileNav categories={categories} />
         <CartDrawer />
+        <SearchDialog index={searchIndex} />
         <AgeGate />
       </body>
     </html>

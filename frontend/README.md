@@ -41,11 +41,11 @@ internal URL can reach the browser.
 | --- | --- |
 | `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
 | `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the two API routes, and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. |
-| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
+| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its payment sandbox, the order timeline, the search dialog, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
 | `src/components/product/` | Everything that describes one product: the card, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
 | `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
-| `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), and the spend ladder (`cart-rewards.ts`). |
-| `src/stores/` | The persisted Zustand cart, and the mobile nav's open state. |
+| `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), the spend ladder (`cart-rewards.ts`), the payment sandbox (`payment-simulation.ts`: the methods, the test cards and the step machine), the order timeline's stages with their per-order storage (`order-timeline.ts`), and the search index built from the layout's catalogue read (`search-index.ts`). |
+| `src/stores/` | The persisted Zustand cart, the mobile nav's open state, and the search dialog's open state with its query. |
 | `public/products/` | The catalogue's nine product images, committed so the deployed site does not depend on WordPress being reachable. |
 
 ## Four things worth knowing before changing this app
@@ -65,6 +65,12 @@ internal URL can reach the browser.
   or emailed. The cart also holds its lines for ten minutes — a **simulated** reservation, stored as
   a deadline in `stores/cart.ts` and ticked only while the drawer is open. Nothing is really held
   back, and the copy says so.
+- **The checkout's payment is a sandbox, and the card never leaves the browser.** Three methods are
+  offered in `components/checkout/payment-methods.tsx`; the card path simulates a 3-D Secure
+  challenge and a declined card creates no order at all. The request body carries
+  `payment: "card" | "qr" | "cod"` and nothing else — no number, no expiry, no code. The chosen
+  method is recorded on the WooCommerce order as `payment_method`/`payment_method_title`, in words
+  that say it was simulated, and on the demo receipt in the same words.
 - **There is no root `loading.tsx`, and adding one is a bug, not a nicety.** Measured by toggling
   only that file: with it, `/product/does-not-exist` and `/shop/does-not-exist` answer **200** five
   times out of five; without it, **404** five times out of five. A `loading.tsx` opens a Suspense

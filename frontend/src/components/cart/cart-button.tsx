@@ -3,6 +3,7 @@
 import { buttonStyles } from "@/components/ui/button";
 import { cartCount, useCartStore } from "@/stores/cart";
 import { useNavStore } from "@/stores/nav";
+import { useSearchStore } from "@/stores/search";
 
 /**
  * Opens the drawer, and says how much is in it.
@@ -28,6 +29,7 @@ export function CartButton() {
       */
       onClick={() => {
         useNavStore.getState().close();
+        useSearchStore.getState().close();
         open();
       }}
       className={buttonStyles("outline", "sm")}

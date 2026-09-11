@@ -2,6 +2,7 @@
 
 import { useCartStore } from "@/stores/cart";
 import { useNavStore } from "@/stores/nav";
+import { useSearchStore } from "@/stores/search";
 
 /** The menu mark, drawn inline so no icon dependency is needed. */
 function MenuIcon() {
@@ -38,6 +39,7 @@ export function MobileNavButton() {
       type="button"
       onClick={() => {
         useCartStore.getState().close();
+        useSearchStore.getState().close();
         useNavStore.getState().open();
       }}
       aria-label="Open menu"
