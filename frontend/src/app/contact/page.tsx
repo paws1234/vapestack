@@ -1,17 +1,21 @@
 import type { Metadata } from "next";
+import { ContactForm } from "@/components/contact/contact-form";
 import { InfoPage } from "@/components/layout/info-page";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "How to reach the person who built the Vapestack demo storefront.",
+  description: "Send a message, or email the person who built the Vapestack demo storefront.",
 };
 
 /**
  * How to get in touch.
  *
- * There is no form here on purpose. A form would need somewhere to send its message, and this demo
- * deliberately has no mail server, no CRM and no queue — a form that silently went nowhere would be
- * a worse answer than saying where to write.
+ * The form is real: it emails a real inbox, and the address is printed beside it because email is
+ * just as good a route and does not depend on this deployment having a mail provider configured.
+ *
+ * There is still no message store, no CRM and no ticket queue behind the form. A message becomes an
+ * email and nothing else, which is what the copy here promises and what `POST /api/contact` does.
  */
 export default function ContactPage() {
   return (
@@ -22,9 +26,33 @@ export default function ContactPage() {
     >
       <p>
         Vapestack was built as a portfolio piece. If something here is broken, or you want to talk
-        about how it was put together, the repository is the best place to look and the best place to
-        say so.
+        about how it was put together, send a message below or email{" "}
+        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. That inbox is mine and I read it.
       </p>
+
+      <h2>Send a message</h2>
+      <p>
+        Three fields, and it arrives as ordinary email. Your address is the reply-to, so replying to
+        it answers you.
+      </p>
+      <ContactForm />
+
+      <h2>What happens to a message</h2>
+      <ul>
+        <li>
+          <strong>It is emailed to me.</strong> Straight to an inbox, as plain text, with no
+          formatting for anything you type to be interpreted as.
+        </li>
+        <li>
+          <strong>Nothing is stored.</strong> There is no table for it, no mailing list and no
+          autoresponder — no ticket number will arrive, because there is no ticketing system. The
+          message lives in my mail, and nowhere else.
+        </li>
+        <li>
+          <strong>It is not a way to reach an order.</strong> Still, and unavoidably, there is no
+          order to check on. See below.
+        </li>
+      </ul>
 
       <h2>What there is no one to ask about</h2>
       <ul>
@@ -40,13 +68,6 @@ export default function ContactPage() {
           nothing here knows who you are.
         </li>
       </ul>
-
-      <h2>There is deliberately no contact form</h2>
-      <p>
-        A form would have to post somewhere. Adding a mail provider to a demo that takes no orders
-        and sends no email would be infrastructure for its own sake, so the contact details are the
-        repository, and the honest answer to &ldquo;can you check on my order?&rdquo; is no.
-      </p>
     </InfoPage>
   );
 }

@@ -197,7 +197,7 @@ export default async function Home() {
               <dt className="text-sm font-medium text-ink-50">Nothing is charged, nothing ships</dt>
               <dd className="mt-2 text-sm leading-relaxed text-ink-200">
                 The checkout writes a real order into WooCommerce and returns its number. No payment
-                is taken, no order is fulfilled and no email is sent.
+                is taken, no order is fulfilled and no order email is sent.
               </dd>
             </div>
           </dl>

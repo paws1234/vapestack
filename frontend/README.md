@@ -12,6 +12,9 @@ npm install
 npm run dev                         # http://localhost:3000
 ```
 
+Only the mail key is optional: without it the site runs, and the contact form says so rather than
+swallowing a message. See **Configuration** below.
+
 Next uses port 3000 and falls back to 3001 when that port is taken, so read the port it prints.
 
 | Script | What it does |
@@ -34,13 +37,16 @@ internal URL can reach the browser.
 | `WP_PUBLIC_URL` | `src/lib/wp/publicUrl.ts` — the origin the browser should load them from. |
 | `WP_CONSUMER_KEY` | `src/lib/wp/rest.ts` — the Basic auth user. |
 | `WP_CONSUMER_SECRET` | `src/lib/wp/rest.ts` — its application password. |
+| `RESEND_API_KEY` | `src/lib/contact-mail.ts` — sends the contact form. Optional; unset, the route answers 503 and the form falls back to the visitor's mail client. |
+| `CONTACT_FROM_EMAIL` | `src/lib/contact-mail.ts` — the sender, defaulting to Resend's shared `onboarding@resend.dev`, which only delivers to the account's own address. |
+| `CONTACT_TO_EMAIL` | `src/lib/contact-mail.ts` — the recipient, defaulting to `CONTACT_EMAIL` in `src/lib/site.ts`. |
 
 ## Where things live
 
 | Path | What it holds |
 | --- | --- |
 | `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
-| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the two API routes, and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
+| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the three API routes (`checkout`, `orders/[id]`, `contact`), and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
 | `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its payment sandbox, the order timeline, the search dialog, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
 | `src/components/product/` | Everything that describes one product: the card, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
 | `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
@@ -61,10 +67,11 @@ internal URL can reach the browser.
   was about to send. Keep that path working when touching `catalog.ts`, `rest.ts` or the checkout
   route.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
-  order is created server-side with a credential the browser never sees. Nothing is charged, shipped
-  or emailed. The cart also holds its lines for ten minutes — a **simulated** reservation, stored as
-  a deadline in `stores/cart.ts` and ticked only while the drawer is open. Nothing is really held
-  back, and the copy says so.
+  order is created server-side with a credential the browser never sees. Nothing about an order is
+  charged, shipped or emailed. The cart also holds its lines for ten minutes — a **simulated**
+  reservation, stored as a deadline in `stores/cart.ts` and ticked only while the drawer is open.
+  Nothing is really held back, and the copy says so. (The contact form is the one part of this app
+  that does send email — see `src/lib/contact-mail.ts`.)
 - **The checkout's payment is a sandbox, and the card never leaves the browser.** Three methods are
   offered in `components/checkout/payment-methods.tsx`; the card path simulates a 3-D Secure
   challenge and a declined card creates no order at all. The request body carries

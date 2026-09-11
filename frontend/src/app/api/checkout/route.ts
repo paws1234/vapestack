@@ -34,7 +34,12 @@ const MAX_TEXT = 200;
 /** Longest order note, which is a demo field rather than correspondence. */
 const MAX_NOTE = 500;
 
-/** Just enough of a shape check to catch a typo. Nothing is emailed to this address. */
+/**
+ * Just enough of a shape check to catch a typo.
+ *
+ * Nothing is emailed to this address. The order is the whole journey: the address is stored on it
+ * and read back with it. The only mail this site sends is the contact form, in `api/contact`.
+ */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** A request refused before WordPress is involved. */

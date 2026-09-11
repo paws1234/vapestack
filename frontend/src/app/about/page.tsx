@@ -39,7 +39,7 @@ export default function AboutPage() {
       <ul>
         <li>The catalogue is real, and so are the orders the checkout writes.</li>
         <li>No payment is ever taken, and no payment provider is connected.</li>
-        <li>Nothing ships, and no email is sent — not even an order confirmation.</li>
+        <li>Nothing ships, and no order email is sent — not even a confirmation.</li>
         <li>The products are invented, and the images are generated placeholders.</li>
       </ul>
 

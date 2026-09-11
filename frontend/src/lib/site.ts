@@ -14,6 +14,15 @@
 const DEFAULT_SITE_URL = "http://localhost:3000";
 
 /**
+ * Where enquiries go.
+ *
+ * A real address, read by the person who built this, rather than a placeholder: the contact page
+ * used to send a visitor to the repository because there was nothing else, which made "contact" a
+ * dead end. It lives here so the contact page and the footer cannot disagree about it.
+ */
+export const CONTACT_EMAIL = "pawsmedz@gmail.com";
+
+/**
  * The site's origin, without a trailing slash.
  *
  * Trailing slashes are stripped because every caller joins a path starting with `/`, and

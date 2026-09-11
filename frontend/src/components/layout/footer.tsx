@@ -3,6 +3,7 @@ import { AgeGateReset } from "@/components/layout/age-gate-reset";
 import { FooterRangeGroup } from "@/components/layout/footer-range-group";
 import { Container } from "@/components/ui/container";
 import { GROUP_LABEL, splitRanges } from "@/lib/nav";
+import { CONTACT_EMAIL } from "@/lib/site";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 /** Where the demo is deployed, and where its source lives. */
@@ -73,6 +74,12 @@ export async function Footer() {
               <a href={REPO_URL} className="text-ink-400 transition hover:text-neon-400" rel="noreferrer">
                 Source
               </a>
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-ink-400 transition hover:text-neon-400"
+              >
+                Email
+              </a>
             </p>
           </div>
 
@@ -129,7 +136,7 @@ export async function Footer() {
           <p className="mt-2 text-sm text-ink-200">
             Vapestack carries nicotine products and is for adults aged 21 and over. This is a
             portfolio demo: the products are invented, no payment is ever taken, no order is
-            fulfilled, no email is sent and no nicotine product ships.
+            fulfilled, no order email is sent and no nicotine product ships.
           </p>
         </div>
 

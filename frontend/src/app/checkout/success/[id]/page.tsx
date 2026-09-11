@@ -92,7 +92,7 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
       <p className="mt-2 text-ink-200">
         WooCommerce recorded it as{" "}
         <span className="text-ink-50">{readableStatus(order.status)}</span>. This is a demo order:
-        no payment was taken, no email was sent and nothing ships.
+        no payment was taken, no order email was sent and nothing ships.
       </p>
 
       <ul className="mt-8 divide-y divide-ink-800 rounded-3xl border border-ink-800 bg-ink-900 px-6">

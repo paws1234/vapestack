@@ -4,22 +4,22 @@ import { InfoPage } from "@/components/layout/info-page";
 export const metadata: Metadata = {
   title: "Privacy",
   description:
-    "What the Vapestack demo stores: a cart and an age answer in your browser, and the order you choose to place.",
+    "What the Vapestack demo stores: a cart and an age answer in your browser, the message you choose to send, and the order you place.",
 };
 
 /**
  * The privacy page, which has the advantage of being able to say almost nothing is collected.
  *
  * Every claim here is checked against the code before it is made: the two storage keys are in
- * `lib/age-gate.ts` and `stores/cart.ts`, the order is the only thing that leaves the browser, and
- * the app sets no cookies and loads no third-party script. If a tracker is ever added, this page is
- * the first thing that has to change.
+ * `lib/age-gate.ts` and `stores/cart.ts`, the order and the contact message are the only things that
+ * leave the browser, and the app sets no cookies and loads no third-party script. If a tracker is
+ * ever added, this page is the first thing that has to change.
  */
 export default function PrivacyPage() {
   return (
     <InfoPage
       title="Privacy"
-      intro="Two things live in your browser, and one thing is sent to the shop."
+      intro="Two things live in your browser, and only what you type into a form is sent anywhere."
       updated="11 September 2026"
     >
       <p>
@@ -49,6 +49,13 @@ export default function PrivacyPage() {
         That order stores the name, email, address and note you entered, in the same database as the
         catalogue. It is a demo order and nothing is done with it — but it is a real record, so type
         nothing you would not want sitting in a WordPress database.
+      </p>
+      <p>
+        And one more, if you use the contact form: the name, email address and message you type are
+        sent to this site&apos;s server, which hands them to a mail provider so they arrive in the
+        inbox of the person who built this. Nothing about a contact message is stored on this site —
+        there is no table for it and no mailing list — and the address is used only as the reply-to
+        on that one email.
       </p>
 
       <h2>What is not collected</h2>
