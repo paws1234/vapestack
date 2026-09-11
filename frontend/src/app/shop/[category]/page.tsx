@@ -4,10 +4,12 @@ import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Container } from "@/components/ui/container";
+import { parseSort, sortProducts } from "@/lib/product-sort";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 type CategoryPageProps = {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ sort?: string | string[] }>;
 };
 
 /**
@@ -35,10 +37,16 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 /**
  * One range, with the same grid as the full shop.
  *
- * @param props.params Route parameters carrying the range slug.
+ * The ordering is read from the URL here too, so the sort survives moving between ranges — the
+ * chips carry it, and a range is as shareable as the whole shop is.
+ *
+ * @param props.params       Route parameters carrying the range slug.
+ * @param props.searchParams The requested ordering; anything unrecognised falls back to name.
  */
-export default async function CategoryPage({ params }: CategoryPageProps) {
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { category } = await params;
+  const { sort: requested } = await searchParams;
+  const sort = parseSort(requested);
   const catalogue = await getCatalogue();
 
   if (!catalogue) {
@@ -62,11 +70,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       </p>
 
       <div className="mt-8">
-        <CategoryChips categories={categories} active={match.slug} />
+        <CategoryChips categories={categories} active={match.slug} sort={sort} />
       </div>
 
       <div className="mt-10">
-        <ProductGrid products={inRange} />
+        <ProductGrid products={sortProducts(inRange, sort)} sort={sort} />
       </div>
     </Container>
   );

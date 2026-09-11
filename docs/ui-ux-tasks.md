@@ -86,8 +86,8 @@ believing it, and measure where content actually ends before drawing a conclusio
 | T4 | Header polish | done | T2, T3 |
 | T5 | Footer rebuild | done | T2 |
 | T6 | Info and legal pages | done | T2, T5 |
-| T7 | Not-found, error and loading states | not started | T2, T5 |
-| T8 | Shop listing: URL sort, empty state, a11y | not started | T2, T7 |
+| T7 | Not-found, error and loading states | done | T2, T5 |
+| T8 | Shop listing: URL sort, empty state, a11y | done | T2, T7 |
 | T9 | Product card polish | not started | T2 |
 | T10 | Product page depth | not started | T2, T9 |
 | T11 | Home page sections and copy | not started | T2 |
@@ -644,7 +644,7 @@ a screenshot at three widths of one of them; `$WPDEV down` and repeat the 200 ch
 
 ---
 
-## T7 — Not-found, error and loading states — `[ ]`
+## T7 — Not-found, error and loading states — `[x]`
 
 **Goal** — An unknown slug, a thrown error and a slow route each show a designed page, and the
 unknown slug answers 404.
@@ -663,8 +663,16 @@ catalogue path).
    Shop and home. It must not read the catalogue.
 2. `frontend/src/app/error.tsx` — `"use client"`, takes `error` and `reset`, offers "Try again" and
    a shop link, and logs the digest. Do not leak the message to the visitor.
-3. `frontend/src/app/loading.tsx` — a skeleton matching the real layout's proportions, so the
-   layout does not jump when the content arrives.
+3. ~~`frontend/src/app/loading.tsx` — a skeleton matching the real layout's proportions.~~
+   **Do not add this, at the root or above the routes that 404.** Measured on 2026-09-11 by toggling
+   only that file: with `app/loading.tsx` present, `/product/does-not-exist` and
+   `/shop/does-not-exist` both answer **200** (five out of five); with it removed, both answer
+   **404** (five out of five). A `loading.tsx` opens a Suspense boundary around the whole page, so
+   Next flushes the shell and commits to a 200 before the page body — where `notFound()` is thrown —
+   has run. The visitor still sees the designed 404; a crawler sees a success. The status is
+   correctness and the skeleton is decoration, so the status wins. If a loading state is wanted, it
+   has to be an explicit `<Suspense>` inside a page around its slow subtree. See the section of the
+   same name in `frontend/UI-STANDARDS.md`.
 4. Empty state for a range with no products: in `components/product/product-grid.tsx`, when
    `products.length === 0`, show a designed message with a link back to Shop instead of an empty
    grid.
@@ -672,7 +680,8 @@ catalogue path).
    **HTTP status**. A `notFound()` under a `force-dynamic` layout should answer 404 — confirm it,
    and if it answers 200, say so rather than hiding it.
 
-**In scope** — the three new files, the `ProductGrid` empty state.
+**In scope** — `frontend/src/app/not-found.tsx` and `frontend/src/app/error.tsx` (the two new
+files; step 3 explains why there is no third), the `ProductGrid` empty state.
 **Out of scope** — the offline path (`OfflineNotice` already covers it and is correct), the
 checkout, any catalogue query change.
 
@@ -681,8 +690,14 @@ checkout, any catalogue query change.
 1. `/product/does-not-exist` answers **404** and shows the designed page, with the header and footer.
 2. `/shop/does-not-exist` does the same.
 3. A route that throws shows the error page with a working "Try again".
-4. A range with zero products shows the empty state (seed one temporarily, or filter the grid, but
-   revert it — do not leave the seeder changed).
+4. The empty state in `ProductGrid` shows when the catalogue has no products at all — load `/shop`
+   with every product unpublished. **A range can never be empty.** `getCatalogue()` derives the
+   category list *from the products*, so unpublishing every product in a range removes the range
+   itself and `/shop/<range>` answers 404 through `notFound()` before the grid is ever reached —
+   measured on 2026-09-11 by drafting products 60 and 67, which turned `/shop/disposables` into a
+   404 rather than an empty listing. Put the products back afterwards (`--post_status=publish`), and
+   note that the five-minute catalogue cache means the change may not be visible for a while: clear
+   `frontend/.next/dev` to force a re-read.
 5. `not-found.tsx` renders with WordPress stopped.
 
 **Verify** — `curl -s -o /dev/null -w '%{http_code}' http://localhost:$PORT/product/does-not-exist`;
@@ -692,9 +707,45 @@ that as private and never routes it) and remove it afterwards.
 
 **Size** — M
 
+> verified: `frontend/src/app/not-found.tsx` and `frontend/src/app/error.tsx` added, `ProductGrid`
+> given the empty state, and no `loading.tsx` anywhere (step 3).
+>
+> Statuses, `curl -s -o /dev/null -w '%{http_code}'`: `/product/does-not-exist` **404**,
+> `/shop/does-not-exist` **404**, `/totally-unknown-route` **404** — each showing the designed page
+> inside the real shell (`Skip to content`, header, footer, `21+ only` all present in the response).
+> The step 3 experiment was re-run five times per configuration: **5/5 `200/200`** with
+> `app/loading.tsx` present, **5/5 `404/404`** with it removed, so it is the file and not timing.
+> Two dead ends worth not repeating: `app/shop/loading.tsx` alone still costs `/shop/<unknown>` its
+> 404 (the `[category]` child inherits the parent boundary) while `/product/<unknown>` keeps its
+> own, and raising `notFound()` from `generateMetadata` does not rescue the status either.
+>
+> The error page was proved with a throwaway `app/error-probe/page.tsx` that threw until the test
+> set a `t7-probe` cookie: **500**, `h1` "This page could not be rendered" at 1440/768/390, and
+> pressing "Try again" recovered the page to "Probe recovered" at the same URL with no reload.
+> **A `reset`-only button did nothing**: the click issued *no request at all* — `page.on("request")`
+> recorded zero, because `reset()` re-renders the payload the browser already holds, so a
+> server-rendered fault comes straight back. `error.tsx` therefore calls `router.refresh()` as well,
+> and the request that follows is what makes the button real. The probe folder was deleted
+> afterwards (`/error-probe` answers 404 again).
+>
+> The empty state was proved the way AC4 asks rather than by faking it: all six products drafted
+> with `wp post update 85 81 79 72 67 60 --post_status=draft`, `frontend/.next/dev` cleared, and
+> `/shop` answered 200 with `h1` Shop, `h2` "No products to show here yet", **0 product links and 0
+> sort controls** — a control over nothing is noise. Screenshots at 1440x900 / 768x1024 / 390x844,
+> dimensions confirmed with `file`, `scrollWidth === clientWidth` at all three. Products republished
+> afterwards and the shop re-checked (6 products, `/shop/e-liquids` 200). A range can never be the
+> empty case, exactly as AC4 now says: the catalogue derives its categories from the products, so an
+> emptied range 404s before the grid renders.
+>
+> `not-found.tsx` renders with WordPress stopped: `wpdev down`, then all three unknown routes still
+> **404** with the designed page.
+>
+> `npx tsc --noEmit` exit 0, `npm run lint` clean, `npm run build` green with every route
+> `ƒ (Dynamic)`.
+
 ---
 
-## T8 — Shop listing: URL sort, empty state and a11y — `[ ]`
+## T8 — Shop listing: URL sort, empty state and a11y — `[x]`
 
 **Goal** — A sorted shop is a shareable URL, the result count is announced, and the chips state
 which range is current.
@@ -738,6 +789,45 @@ need them, and the plan excludes them.
 showing the order; the same with JavaScript disabled in the browser; screenshots at three widths.
 
 **Size** — M
+
+> verified: `frontend/src/lib/product-sort.ts` added (`Sort`, `SORT_OPTIONS`, `parseSort`,
+> `sortProducts`); both listing pages await `searchParams` and order the grid on the server;
+> `ProductGrid` is now a **server component** — `grep -c '"use client"' product-grid.tsx` is `0` —
+> and renders the new `SortControl`; `CategoryChips` carries the sorting and marks the current
+> range.
+>
+> Order read out of the DOM at 1440x900: name → `aero-pod-kit, coastal-tobacco-e-liquid,
+> frost-rush-3000, midnight-berry-e-liquid, neon-rush-6000, pulse-pod-kit`; `?sort=price-asc` →
+> `$9.99, $12.99, $12.99, $13.99, $24.99, $34.99`; `?sort=price-desc` → exactly those reversed;
+> `?sort=nonsense` → the name order again, as AC2 asks.
+>
+> AC3 decided, and stated: **the sort is kept when switching ranges.** Every chip href carries it
+> (`/shop?sort=price-asc`, `/shop/disposables?sort=price-asc`, …) and the default is left out of the
+> URL, so an unsorted shop keeps the plain `/shop` address.
+>
+> AC4: on `/shop/e-liquids?sort=price-asc`, `E-Liquids` is the only chip with
+> `aria-current="page"`; the other three report `null`. The count sits in
+> `aria-live="polite" aria-atomic="true"` and reads "6 products".
+>
+> Sorting is a URL change, not a reload: choosing *Price: high to low* set `?sort=price-desc`, a
+> marker left on `window` survived (so no document reload) and the grid re-ordered. Back then
+> returned to `/shop` with the select reading `name` and the name order restored — the control is
+> driven by the URL, so it cannot disagree with the grid beside it.
+>
+> JavaScript off, `javaScriptEnabled: false`, which is the AC3 claim tested rather than asserted:
+> the served form is `<form action="/shop" method="get">` containing `select[name=sort]` and the
+> **Apply** button; selecting *Price: low to high* and pressing Enter on the focused button
+> navigated to `/shop?sort=price-asc` and the served HTML came back in rising price order. Note that
+> the age gate covers the button from the pointer while it is up — the element at its centre is the
+> gate — so the keyboard path is the one that proves this.
+>
+> Screenshots at 1440x900 / 768x1024 / 390x844 with `file` confirming the dimensions; no horizontal
+> overflow at any width (1440/1440, 768/768, 390/390) on `/shop`, `/shop?sort=price-desc` and
+> `/shop/e-liquids?sort=price-asc`. At 390 the control wraps onto its own row (275x36 at y=393)
+> rather than squeezing the count.
+>
+> `npx tsc --noEmit` exit 0, `npm run lint` clean, `npm run build` green, and the two 404s still
+> answer **404** after the build.
 
 ---
 

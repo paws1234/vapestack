@@ -160,6 +160,20 @@ alone:
 Empty, error and offline are states of a *page*, not of a control: each gets a designed block with a
 heading, an explanation and a way out. `OfflineNotice` is the reference implementation.
 
+**An error page's "Try again" needs `router.refresh()` as well as `reset()`.** Measured while
+implementing T7: a click on a `reset`-only button issued **no request at all**. `reset()` re-renders
+the payload the browser already holds, so an error thrown while rendering on the server comes
+straight back and the button looks dead. `app/error.tsx` calls both, and the same click then
+refetches the segment and the page recovers — proved by a probe route that stopped throwing the
+moment the test changed a cookie.
+
+**The shop's sort control is a real `GET` form, and its "Apply" button is deliberate.** It is the
+no-JS path — a `<select>` cannot navigate on its own — and `onChange` only adds a `router.push` on
+top of it. Do not "simplify" it to a controlled select. The URL is the state: the pages read
+`searchParams`, order the catalogue on the server, and the grid stays a server component. That is
+what makes a sorted shop shareable and the back button correct (both verified: the select follows
+the URL back to `name`, and the grid follows it).
+
 Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
 keyboard, is struck through, and is explained by a notice that names the working alternative.
 
@@ -194,6 +208,32 @@ A transition may never be the thing that makes a change understandable. Every an
 appear instead of sliding, the card image does not zoom, and the skeleton does not pulse.
 
 `transition-colors` and other pure colour transitions are exempt — they are not motion.
+
+## There is no root `loading.tsx`, and adding one would be a bug
+
+Measured on 2026-09-11, toggling only that file:
+
+| State | `/product/does-not-exist` | `/shop/does-not-exist` |
+| --- | --- | --- |
+| `app/loading.tsx` present | **200** | **200** |
+| `app/loading.tsx` removed | **404** | **404** |
+
+A `loading.tsx` creates a Suspense boundary around the whole page, so Next flushes the shell and
+commits to a 200 before the page body is rendered — and `notFound()` is thrown inside that body, too
+late to change the status. The visitor still sees the designed 404; a crawler sees a success. Five
+repeats in each state, so it is the file and not timing.
+
+The unknown-slug status is a correctness matter and the skeleton is decoration, so **the status
+wins**. If a loading state is wanted later, it has to be an explicit `<Suspense>` inside a page
+around its slow subtree — the page function then runs first and `notFound()` still decides the
+status — not a `loading.tsx` at any level above the routes that 404.
+
+Reproduced independently while implementing T7: 5/5 `200/200` with the file, 5/5 `404/404` without
+it. Two further measurements, so nobody repeats the search: `app/shop/loading.tsx` alone is enough
+to cost `/shop/<unknown>` its 404 as well, because the `[category]` child inherits its parent's
+boundary, while `/product/<unknown>` keeps its own; and raising `notFound()` from `generateMetadata`
+does not rescue the status — metadata streams too.
+
 
 ## Responsive contract
 

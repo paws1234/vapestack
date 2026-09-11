@@ -1,66 +1,61 @@
-"use client";
-
-import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ProductCard } from "@/components/product/product-card";
-import { Select } from "@/components/ui/select";
+import { SortControl } from "@/components/product/sort-control";
+import { buttonStyles } from "@/components/ui/button";
+import type { Sort } from "@/lib/product-sort";
 import type { Product } from "@/lib/wp/types";
 
-/** The orderings the shop offers. */
-type Sort = "name" | "price-asc" | "price-desc";
-
-const SORTS: { value: Sort; label: string }[] = [
-  { value: "name", label: "Name" },
-  { value: "price-asc", label: "Price: low to high" },
-  { value: "price-desc", label: "Price: high to low" },
-];
-
 /**
- * A grid of products with a sort control.
+ * A grid of products, in the order the page read out of the URL.
  *
- * Sorting happens here rather than in the query because WordPress does not guarantee an order,
- * and six products do not need a round trip to reorder. Filtering by range stays in the URL.
+ * A server component, and deliberately dumb: the ordering and the filtering both happen before it
+ * renders, so what is sent is the grid a visitor asked for rather than one that re-sorts itself
+ * once JavaScript arrives. The only interactive thing here is `SortControl`, which is a client
+ * component in its own file.
  *
- * @param props.products Products to show, already filtered by the page.
+ * @param props.products Products to show, already filtered by the page and already in order.
+ * @param props.sort     The ordering in use, so the control never disagrees with the grid.
  */
-export function ProductGrid({ products }: { products: Product[] }) {
-  const [sort, setSort] = useState<Sort>("name");
+export function ProductGrid({ products, sort }: { products: Product[]; sort: Sort }) {
+  /*
+    An empty listing is a designed state rather than an empty grid with a "0 products" line over
+    it: the count and the sort control are both meaningless with nothing to count or order, so the
+    panel replaces the whole block and offers the one useful way out.
+  */
+  if (products.length === 0) {
+    return (
+      <div className="rounded-3xl border border-ink-700 bg-ink-900 p-8 sm:p-10">
+        <p className="text-xs uppercase tracking-[0.25em] text-neon-400">Nothing listed</p>
+        <h2 className="mt-3 text-2xl font-semibold text-ink-50">No products to show here yet</h2>
+        <p className="mt-4 text-ink-200">
+          Every product in this listing is unpublished, or it has been taken out of the catalogue.
+          Vapestack reads that catalogue live from WooCommerce, so this can change on its own.
+        </p>
+        <p className="mt-3 text-ink-400">The rest of the shop is unaffected.</p>
 
-  const sorted = useMemo(() => {
-    const order = [...products];
-
-    switch (sort) {
-      case "price-asc":
-        return order.sort((a, b) => a.price.min - b.price.min);
-      case "price-desc":
-        return order.sort((a, b) => b.price.min - a.price.min);
-      default:
-        return order.sort((a, b) => a.name.localeCompare(b.name));
-    }
-  }, [products, sort]);
+        <Link href="/shop" className={`${buttonStyles("primary", "md")} mt-8`}>
+          Browse the whole shop
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-sm text-ink-400">
+        {/*
+          Announced, because sorting changes this number without a navigation: the select pushes a
+          URL and the server re-renders the grid underneath it.
+        */}
+        <p className="text-sm text-ink-400" aria-live="polite" aria-atomic="true">
           {products.length} {products.length === 1 ? "product" : "products"}
         </p>
 
-        <Select
-          id="sort"
-          label="Sort"
-          value={sort}
-          onChange={(event) => setSort(event.target.value as Sort)}
-        >
-          {SORTS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
+        <SortControl sort={sort} />
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {sorted.map((product, index) => (
+        {products.map((product, index) => (
           <ProductCard key={product.id} product={product} eager={index < 3} />
         ))}
       </div>

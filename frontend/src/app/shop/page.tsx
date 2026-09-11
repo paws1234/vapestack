@@ -3,6 +3,7 @@ import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Container } from "@/components/ui/container";
+import { parseSort, sortProducts } from "@/lib/product-sort";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 export const metadata: Metadata = {
@@ -10,7 +11,22 @@ export const metadata: Metadata = {
   description: "Every device, liquid and pod in the Vapestack catalogue.",
 };
 
-export default async function ShopPage() {
+type ShopPageProps = {
+  searchParams: Promise<{ sort?: string | string[] }>;
+};
+
+/**
+ * The whole catalogue.
+ *
+ * The ordering lives in the URL (`?sort=price-asc`) and is applied here rather than in the browser,
+ * so a sorted shop is a shareable link, the back button returns to the previous order, and the
+ * served HTML is already sorted for a visitor without JavaScript.
+ *
+ * @param props.searchParams The requested ordering; anything unrecognised falls back to name.
+ */
+export default async function ShopPage({ searchParams }: ShopPageProps) {
+  const { sort: requested } = await searchParams;
+  const sort = parseSort(requested);
   const catalogue = await getCatalogue();
 
   if (!catalogue) {
@@ -27,11 +43,11 @@ export default async function ShopPage() {
       </p>
 
       <div className="mt-8">
-        <CategoryChips categories={categories} />
+        <CategoryChips categories={categories} sort={sort} />
       </div>
 
       <div className="mt-10">
-        <ProductGrid products={products} />
+        <ProductGrid products={sortProducts(products, sort)} sort={sort} />
       </div>
     </Container>
   );
