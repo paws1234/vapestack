@@ -55,7 +55,7 @@ live here.
 | T12 | Age verification gate | done | T6, T11 (shared dialog hook) |
 | T13 | Checkout API that creates a WooCommerce order | done | T2, T5 |
 | T14 | Checkout page and success page | done | T11, T13 |
-| T15 | Repository preparation | not started | T14 |
+| T15 | Repository preparation | done | T14 |
 | T16 | Self-contained product images | not started | T15 |
 | T17 | Tunnel-proof catalogue and degraded checkout | not started | T16 |
 | T18 | Publish: tunnel, GitHub, Vercel, first deploy | not started | T17, the user's accounts |
@@ -797,7 +797,7 @@ created.
 
 ---
 
-## T15 — Repository preparation — [ ]
+## T15 — Repository preparation — [x] done
 
 **Goal** — The whole project is a git repository whose first commit carries the project's own code
 and none of its secrets.
@@ -839,6 +839,23 @@ and `wp-content/uploads/`; the tracked file list contains no secret and no depen
 `git ls-files | grep -E '\.env|credential|node_modules|\.next/'`; `git log --stat -1`.
 
 **Size** S
+
+> verified: `git -C /home/adminpaws/Desktop/dev/vapestack init -b main`, identity `Reyvand Medrano
+> <reyvand@icopylegal.com>` already configured globally. The scan for the credential values found
+> the 24-character application password only in `.env` and `frontend/.env.local`, and the
+> 40-character MCP credential only in `.elementor-mcp-credential` and `.mcp.json`; the second
+> matched value was the generic word `password` used as prose across 11 files. `git check-ignore -v`
+> named a rule for each of `.env` (`:2`), `.mcp.json` (`:3`), `.elementor-mcp-credential` (`:7`,
+> added here), `frontend/.env.local` (`frontend/.gitignore:34`) and `wp-content/uploads/index.html`
+> (`:13`). The pre-commit review listed 67 files - `docs/`, `tools/`, the theme, `frontend/src/`,
+> `frontend/public/`, `docker-compose.yml`, `CLAUDE.md`, `.claude/`, `.vscode/mcp.json`,
+> `.wpdev-project` - with `git status --porcelain -uall | grep -E '\\.env|credential|node_modules|\\.next/'` matching only
+> `frontend/.env.local.example`, the intended exception. Commit `9a77cc2` holds 67 files and 13423
+> insertions; `git grep -I -l -F` over the committed blobs found neither the application password
+> nor the MCP credential; `git status --porcelain` is empty.
+> Also done here because it is repository presentation, not app work: the root `README.md` (what
+> this is, local run, deploy shape, the tunnel caveat) and `frontend/README.md`, which was still
+> `create-next-app` boilerplate promising port 3000 when the app runs on 3001.
 
 ---
 
