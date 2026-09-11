@@ -16,6 +16,7 @@ import type {
   ProductVariation,
   StockStatus,
 } from "./types";
+import { UpstreamUnavailableError } from "./upstream";
 
 type RawImage = { sourceUrl: string; altText: string | null } | null;
 
@@ -214,4 +215,32 @@ export async function getCategories(): Promise<Category[]> {
   }
 
   return [...categories.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Everything a listing page needs, in one read. */
+export type Catalogue = {
+  categories: Category[];
+  products: Product[];
+};
+
+/**
+ * Reads the catalogue, or answers null when WordPress cannot be reached at all.
+ *
+ * The deployed demo reaches WordPress through a cloudflared tunnel that is only open while the
+ * development machine is running, so "WordPress is not there" is an expected state rather than a
+ * fault, and the pages answer it with an offline notice. A GraphQL error is still thrown: that
+ * means the query or the catalogue is wrong, which is not something to paper over with a notice.
+ */
+export async function getCatalogue(): Promise<Catalogue | null> {
+  try {
+    const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+
+    return { categories, products };
+  } catch (error) {
+    if (error instanceof UpstreamUnavailableError) {
+      return null;
+    }
+
+    throw error;
+  }
 }

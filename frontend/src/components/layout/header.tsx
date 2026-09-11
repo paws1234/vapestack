@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { buttonStyles } from "@/components/ui/button";
-import { getCategories } from "@/lib/wp/catalog";
+import { getCatalogue } from "@/lib/wp/catalog";
 
 /** Wordmark and category navigation. */
 export async function Header() {
-  const categories = await getCategories();
+  /*
+    A header is not worth failing a page over. With WordPress unreachable the navigation falls back
+    to the plain shop link, and the page below it decides what to say about the missing catalogue.
+  */
+  const categories = (await getCatalogue())?.categories ?? [];
 
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/80 backdrop-blur">

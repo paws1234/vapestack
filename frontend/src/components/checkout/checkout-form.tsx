@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
+import { writeDemoOrder } from "@/lib/demo-order";
 import { cartSubtotal, useCartStore } from "@/stores/cart";
 
 /** Shared look for every field. Height is added per element, so a textarea is not forced into it. */
@@ -116,8 +117,30 @@ export function CheckoutForm() {
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { id?: number; error?: string }
+        | { id?: number; demo?: boolean; error?: string }
         | null;
+
+      /*
+        WordPress could not be reached, so no order exists and none was recorded. The visitor's
+        flow is not broken: the receipt for what this browser was about to send is kept in the tab,
+        because the server has nothing to read back, and the success route shows it as demo mode.
+      */
+      if (payload?.demo) {
+        writeDemoOrder({
+          items: items.map((line) => ({
+            name: line.name,
+            options: line.options,
+            quantity: line.quantity,
+            total: line.unitPrice * line.quantity,
+          })),
+          total: subtotal,
+        });
+
+        clear();
+        router.push("/checkout/success/demo");
+
+        return;
+      }
 
       if (!response.ok || "number" !== typeof payload?.id) {
         setError(payload?.error ?? "The order could not be created. Please try again.");

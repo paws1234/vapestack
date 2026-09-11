@@ -56,8 +56,8 @@ live here.
 | T13 | Checkout API that creates a WooCommerce order | done | T2, T5 |
 | T14 | Checkout page and success page | done | T11, T13 |
 | T15 | Repository preparation | done | T14 |
-| T16 | Self-contained product images | not started | T15 |
-| T17 | Tunnel-proof catalogue and degraded checkout | not started | T16 |
+| T16 | Self-contained product images | done | T15 |
+| T17 | Tunnel-proof catalogue and degraded checkout | done | T16 |
 | T18 | Publish: tunnel, GitHub, Vercel, first deploy | not started | T17, the user's accounts |
 | T19 | Verify from the public URL | not started | T18 |
 
@@ -859,7 +859,7 @@ and `wp-content/uploads/`; the tracked file list contains no secret and no depen
 
 ---
 
-## T16 — Self-contained product images — [ ]
+## T16 — Self-contained product images — [x] done
 
 **Goal** — The nine seeded product images are served by the frontend itself, so the shop looks
 complete when WordPress is unreachable.
@@ -895,9 +895,29 @@ commands.
 
 **Size** S
 
+> verified: `tools/copy-product-images.sh` copied the nine full-size originals into
+> `frontend/public/products/`, skipping WordPress's 54 `-<w>x<h>` resizes; `src/lib/wp/localImages.ts`
+> added and called from `publicUrl()` ahead of the origin rewrite; `next.config.ts` untouched.
+> **A real bug was caught by checking rather than assuming.** The first version compared the option
+> slugs in the list against the full `vapestack-<slug>` filename, so nothing ever matched and the
+> pages still pointed at WordPress: `/shop` served 26 references to `8889/wp-content/uploads` and
+> zero local ones. The stale dev-server trap then hid it for a round — `next dev` kept rendering an
+> older build until it was killed, `.next` removed and the server restarted, the same cure T9
+> needed.
+> After the fix: `/`, `/shop`, `/shop/e-liquids`, `/product/neon-rush-6000` and `/product/aero-pod-kit`
+> each serve zero references to 8889 and only `/products/vapestack-*.png` ones. In the browser the
+> shop's six images all load from `/_next/image?url=%2Fproducts%2Fvapestack-*.png` at a natural
+> 340x340, `performance.getEntriesByType("resource")` lists `localhost:3000` as the only host ever
+> contacted, and on the PDP choosing Frost Mint swaps the image from `vapestack-blue-razz-ice.png`
+> to `vapestack-frost-mint.png` at 680x680 with the price and stock text intact. `npx tsc --noEmit`,
+> `npm run lint` and `npm run build` are clean, and the build's own `shop.html` carries six local
+> references and none to 8889. Commits `b5e5032` (the T15 record) and `9b9c274`.
+> Two side effects worth knowing: the dev server now binds **3000** because nothing else holds that
+> port any more, so both READMEs were corrected — they claimed the app always runs on 3001.
+
 ---
 
-## T17 — Tunnel-proof catalogue and degraded checkout — [ ]
+## T17 — Tunnel-proof catalogue and degraded checkout — [x] done
 
 **Goal** — Nothing in the deployed app fetches WordPress at build time, and with the tunnel down the
 catalogue still renders while checkout explains itself instead of failing.
@@ -944,6 +964,48 @@ for the offline message; a checkout run with the REST URL pointed at a dead port
 end-to-end order to prove nothing regressed.
 
 **Size** M
+
+> verified: `src/lib/wp/upstream.ts` (new) types "WordPress is not there" as
+> `UpstreamUnavailableError`; `graphql.ts` throws it for a refused connection and for any 5xx while
+> a 4xx stays a plain error, and `rest.ts` does the same for WooCommerce; `catalog.ts` gained
+> `getCatalogue()`, which answers null for that error and rethrows anything else;
+> `components/layout/offline-notice.tsx` (new) renders the explanation and the four catalogue routes
+> use it; `/api/checkout` answers `{ demo: true }` when WordPress is unreachable and leaves every
+> existing 400 and 502 exactly as they were; `lib/demo-order.ts` (new) plus
+> `components/checkout/demo-order-summary.tsx` (new) carry the demo receipt, which the form writes to
+> `sessionStorage` and `/checkout/success/demo` reads back; the success page also survives WordPress
+> disappearing between the order and the page.
+> **Deviation from this task's step 1, recorded rather than made quietly:** the
+> `dynamic = "force-dynamic"` declaration went into `src/app/layout.tsx` instead of the four pages.
+> The header reads the catalogue for its navigation, so *every* route touches WordPress - including
+> `/checkout`, which has no catalogue read of its own and was therefore prerendered at build time as
+> well. One declaration in the layout covers the whole app and the pages carry none. The header now
+> reads through `getCatalogue()` with an empty-list fallback, because a header is not worth failing a
+> page over. The build shows the effect: every route, `/_not-found` and `/checkout` included, is
+> `ƒ (Dynamic)`, and the build fetches nothing from WordPress.
+> Offline proof with `WP_GRAPHQL_URL` and `WP_REST_URL` pointed at `127.0.0.1:9`: `/`, `/shop`,
+> `/shop/e-liquids` and `/product/neon-rush-6000` each answer **200** with the notice where a 500
+> would have been, `/checkout` still renders its form, and `POST /api/checkout` with a real basket
+> answers `{"demo":true}` **200**; `wc_get_orders()` still counted **6** afterwards, so nothing was
+> created. A second server with only `WP_REST_URL` dead proved the other branch: the catalogue still
+> rendered all six products, a valid basket answered `{"demo":true}`, and an invalid product id still
+> answered **400** `Product 999999 is not in the catalogue.` - which is what shows demo mode is
+> specific to unreachability rather than swallowing refusals.
+> Browser, end to end: a seeded cart on `/checkout` rendered `Aero Pod Kit Quantity 1 $24.99`, and
+> submitting landed on **`/checkout/success/demo`** with the heading "Nothing was ordered", the line
+> and total, an explanation that no order was created and an emptied cart, with `sessionStorage`
+> holding `{"items":[{"name":"Aero Pod Kit","options":[],"quantity":1,"total":24.99}],"total":24.99}`.
+> Regression with WordPress reachable: `/checkout/success/99`, "Order placed", `processing`,
+> "Aero Pod Kit × 1  $24.99", cart emptied, and `wc_get_orders()` reads back
+> `processing 24.99 Aero Pod Kit x1` with the count up from 6 to 7. Console on the real path: React
+> DevTools info, `[HMR] connected`, Fast Refresh logs and the known dev-only preload advisories for
+> two `next/font` `.woff2` files - no React warnings, no hydration warning, `pageerror` empty.
+> Offline `/shop` screenshotted at 1440x900, 768x1024 and 390x844, each confirmed with `file`, with
+> `scrollWidth - innerWidth` of -15 at every width; the 390 one was looked at and shows the notice,
+> the header and the footer. `npx tsc --noEmit`, `npm run lint` and `npm run build` are clean.
+> Two traps for the next session: a seeded cart has to carry `version: 1` or zustand drops it with
+> "State loaded from storage couldn't be migrated", and a running dev server keeps the env vars it
+> started with, so testing a dead endpoint needs `pkill -f next-server` first.
 
 ---
 

@@ -1,28 +1,25 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
-import { getCategories, getProducts } from "@/lib/wp/catalog";
+import { getCatalogue } from "@/lib/wp/catalog";
 
 type CategoryPageProps = {
   params: Promise<{ category: string }>;
 };
 
-/** Pre-renders one page per range that actually has products. */
-export async function generateStaticParams() {
-  const categories = await getCategories();
-
-  return categories.map((category) => ({ category: category.slug }));
-}
-
 /**
  * Titles the page after the range being viewed.
+ *
+ * A range whose catalogue could not be read gets no title here: the page itself then shows the
+ * offline notice, and an empty object keeps that failure out of the metadata.
  *
  * @param props.params Route parameters, awaited because Next 16 hands them over as a promise.
  */
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { category } = await params;
-  const match = (await getCategories()).find((candidate) => candidate.slug === category);
+  const match = (await getCatalogue())?.categories.find((candidate) => candidate.slug === category);
 
   if (!match) {
     return {};
@@ -41,7 +38,13 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
  */
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { category } = await params;
-  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+  const catalogue = await getCatalogue();
+
+  if (!catalogue) {
+    return <OfflineNotice />;
+  }
+
+  const { categories, products } = catalogue;
   const match = categories.find((candidate) => candidate.slug === category);
 
   if (!match) {

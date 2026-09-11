@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { OfflineNotice } from "@/components/layout/offline-notice";
 import { ProductCard } from "@/components/product/product-card";
 import { buttonStyles } from "@/components/ui/button";
-import { getCategories, getProducts } from "@/lib/wp/catalog";
+import { getCatalogue } from "@/lib/wp/catalog";
 
 export default async function Home() {
-  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+  const catalogue = await getCatalogue();
+
+  if (!catalogue) {
+    return <OfflineNotice />;
+  }
+
+  const { categories, products } = catalogue;
 
   // One product per range, so the home page shows the breadth of the shop without
   // duplicating the listing page.

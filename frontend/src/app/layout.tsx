@@ -17,6 +17,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/*
+ * Every route renders per request, and it is declared here rather than on each page because this
+ * is where the reason lives: the header below reads the catalogue for its navigation, so every
+ * route under this layout touches WordPress. The deployed build must not depend on it - WordPress
+ * is reached through a tunnel that is only open while the development machine is running - and a
+ * route that is rendered per request cannot fetch anything at build time. The catalogue's own
+ * five-minute data cache still keeps this from being a read on every view.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "Vapestack",

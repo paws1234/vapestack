@@ -10,6 +10,7 @@
 import { getProducts } from "@/lib/wp/catalog";
 import { createOrder, WooCommerceError } from "@/lib/wp/rest";
 import type { CheckoutRequest } from "@/lib/wp/types";
+import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 import { MAX_QUANTITY } from "@/stores/cart";
 
 /*
@@ -56,6 +57,19 @@ function upstream(what: string, error: unknown): Response {
   console.error(`Checkout: ${what} failed.`, detail);
 
   return Response.json({ error: "The order could not be created. Please try again." }, { status: 502 });
+}
+
+/**
+ * Answers when WordPress could not be reached at all.
+ *
+ * No order exists and none can: this is a demo whose WooCommerce lives behind a tunnel that is only
+ * open while the development machine is running, so an unreachable shop is an expected state. The
+ * form is told to show a demo receipt for the basket it was about to send, rather than the visitor
+ * being left with an error. Nothing is written anywhere, and the response carries nothing the
+ * browser did not already have - it knows its own lines and the total it displayed.
+ */
+function demo(): Response {
+  return Response.json({ demo: true });
 }
 
 /**
@@ -250,6 +264,10 @@ export async function POST(request: Request) {
   try {
     reason = await unbuyable(payload.items);
   } catch (error) {
+    if (error instanceof UpstreamUnavailableError) {
+      return demo();
+    }
+
     return upstream("the catalogue read", error);
   }
 
@@ -260,6 +278,15 @@ export async function POST(request: Request) {
   try {
     return Response.json(await createOrder(payload));
   } catch (error) {
+    /*
+     * The catalogue read above is cached, so it can still answer while the tunnel behind it has
+     * already closed. That is why this needs the same treatment as the read above rather than
+     * relying on it to fail first.
+     */
+    if (error instanceof UpstreamUnavailableError) {
+      return demo();
+    }
+
     return upstream("order creation", error);
   }
 }

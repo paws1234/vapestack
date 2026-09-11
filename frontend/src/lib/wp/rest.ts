@@ -11,6 +11,7 @@
  */
 
 import type { CheckoutRequest, OrderSummary, OrderSummaryLine } from "./types";
+import { unreachable, UpstreamUnavailableError } from "./upstream";
 
 /** The order fields this app reads back; everything else WooCommerce returns is ignored. */
 type RawOrder = {
@@ -97,20 +98,39 @@ async function wpRest<TData>(
 ): Promise<TData> {
   const { endpoint, authorization } = credentials();
 
-  const response = await fetch(`${endpoint}${path}`, {
-    method: options.method ?? "GET",
-    headers: { "Content-Type": "application/json", Authorization: authorization },
-    body: undefined === options.body ? undefined : JSON.stringify(options.body),
-    /*
-     * Never reused, unlike catalogue reads: both callers need what WooCommerce says now, not
-     * what it said when the page was built.
-     */
-    cache: "no-store",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${endpoint}${path}`, {
+      method: options.method ?? "GET",
+      headers: { "Content-Type": "application/json", Authorization: authorization },
+      body: undefined === options.body ? undefined : JSON.stringify(options.body),
+      /*
+       * Never reused, unlike catalogue reads: both callers need what WooCommerce says now, not
+       * what it said when the page was built.
+       */
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw unreachable(`WooCommerce REST at ${endpoint}`, error);
+  }
 
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
+    /*
+     * A 5xx means WooCommerce, or the tunnel in front of it, is broken rather than refusing: the
+     * same event as a refused connection, and the checkout answers it with demo mode. A 4xx is a
+     * real refusal and keeps its status, which is what tells an unknown order (404) from a
+     * permission problem (401).
+     */
+    if (response.status >= 500) {
+      throw new UpstreamUnavailableError(
+        `WooCommerce REST answered ${response.status} for ${path}`,
+        response.status,
+      );
+    }
+
     throw new WooCommerceError(messageFrom(payload, response.status), response.status);
   }
 

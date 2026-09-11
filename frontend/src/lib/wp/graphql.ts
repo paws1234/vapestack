@@ -5,6 +5,8 @@
  * variable, so nothing here can run in the browser.
  */
 
+import { unreachable, UpstreamUnavailableError } from "./upstream";
+
 type GraphQLResponse<T> = {
   data?: T;
   errors?: { message: string }[];
@@ -31,14 +33,33 @@ export async function wpQuery<TData>(
     );
   }
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables }),
-    next: { revalidate: REVALIDATE_SECONDS, tags: ["catalogue"] },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables }),
+      next: { revalidate: REVALIDATE_SECONDS, tags: ["catalogue"] },
+    });
+  } catch (error) {
+    /* A refused connection or a timeout: WordPress is not there, which callers may handle. */
+    throw unreachable(`WordPress GraphQL at ${endpoint}`, error);
+  }
 
   if (!response.ok) {
+    /*
+     * A 5xx is WordPress or whatever is in front of it failing, which is the same kind of event as
+     * a refused connection. Anything else is a request this app got wrong, and stays a plain error
+     * so it is not mistaken for the shop being away.
+     */
+    if (response.status >= 500) {
+      throw new UpstreamUnavailableError(
+        `WordPress GraphQL answered ${response.status} ${response.statusText}`,
+        response.status,
+      );
+    }
+
     throw new Error(
       `WordPress GraphQL request failed with ${response.status} ${response.statusText}`,
     );

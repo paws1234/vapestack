@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DemoOrderSummary } from "@/components/checkout/demo-order-summary";
+import { OfflineNotice } from "@/components/layout/offline-notice";
 import { buttonStyles } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
 import { getOrderSummary } from "@/lib/wp/rest";
+import type { OrderSummary } from "@/lib/wp/types";
+import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 
 /*
  * Read when the page is asked for: this follows an order that was created seconds ago, and a
@@ -19,6 +23,9 @@ export const metadata: Metadata = {
 type SuccessPageProps = {
   params: Promise<{ id: string }>;
 };
+
+/** The id the checkout redirects to when WooCommerce could not be reached at all. */
+const DEMO_ID = "demo";
 
 /**
  * Turns WooCommerce's status slug into something readable.
@@ -39,13 +46,37 @@ function readableStatus(status: string): string {
  */
 export default async function CheckoutSuccessPage({ params }: SuccessPageProps) {
   const { id } = await params;
+
+  /*
+    Demo mode: no order was created, so there is nothing on the server to read. The receipt lives
+    in the tab that placed it, which means the component that renders it has to be able to read
+    storage.
+  */
+  if (DEMO_ID === id) {
+    return <DemoOrderSummary />;
+  }
+
   const orderId = Number(id);
 
   if (!Number.isInteger(orderId) || orderId < 1) {
     notFound();
   }
 
-  const order = await getOrderSummary(orderId);
+  let order: OrderSummary | null;
+
+  try {
+    order = await getOrderSummary(orderId);
+  } catch (error) {
+    /*
+      The order was created moments ago, so WordPress was reachable then. If it is not reachable
+      now the order is not lost, only unreadable from here, and saying so beats an error page.
+    */
+    if (error instanceof UpstreamUnavailableError) {
+      return <OfflineNotice what="order" />;
+    }
+
+    throw error;
+  }
 
   if (!order) {
     notFound();

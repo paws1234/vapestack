@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
-import { getCategories, getProducts } from "@/lib/wp/catalog";
+import { getCatalogue } from "@/lib/wp/catalog";
 
 export const metadata: Metadata = {
   title: "Shop",
@@ -9,7 +10,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ShopPage() {
-  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+  const catalogue = await getCatalogue();
+
+  if (!catalogue) {
+    return <OfflineNotice />;
+  }
+
+  const { categories, products } = catalogue;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { OfflineNotice } from "@/components/layout/offline-notice";
 import { ProductDetail } from "@/components/product/product-detail";
-import { getProductBySlug, getProducts } from "@/lib/wp/catalog";
+import { getProductBySlug } from "@/lib/wp/catalog";
+import type { Product } from "@/lib/wp/types";
+import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -11,11 +14,24 @@ type ProductPageProps = {
 /** The longest a meta description is worth before search engines truncate it. */
 const META_DESCRIPTION_LIMIT = 155;
 
-/** Pre-renders one page per product the catalogue knows about. */
-export async function generateStaticParams() {
-  const products = await getProducts();
+/**
+ * Reads one product without making "WordPress is away" fatal.
+ *
+ * An unknown slug is a 404 and has to stay one, so the two outcomes are kept apart deliberately:
+ * null means there is no such product, undefined means the catalogue could not be read at all.
+ *
+ * @param slug Product slug as it appeared in the URL.
+ */
+async function readProduct(slug: string): Promise<Product | null | undefined> {
+  try {
+    return await getProductBySlug(slug);
+  } catch (error) {
+    if (error instanceof UpstreamUnavailableError) {
+      return undefined;
+    }
 
-  return products.map((product) => ({ slug: product.slug }));
+    throw error;
+  }
 }
 
 /**
@@ -40,7 +56,7 @@ function plainText(html: string): string {
  */
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await readProduct(slug);
 
   if (!product) {
     return {};
@@ -68,7 +84,11 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
  */
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await readProduct(slug);
+
+  if (undefined === product) {
+    return <OfflineNotice what="product" />;
+  }
 
   if (!product) {
     notFound();

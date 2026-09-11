@@ -46,11 +46,18 @@ internal URL can reach the browser.
 | `src/stores/` | The persisted Zustand cart. |
 | `public/products/` | The catalogue's nine product images, committed so the deployed site does not depend on WordPress being reachable. |
 
-## Two things worth knowing before changing this app
+## Three things worth knowing before changing this app
 
-- **The catalogue routes are dynamic on purpose.** Nothing is fetched from WordPress during
-  `npm run build`, so a build never fails because the WordPress tunnel is down. Do not reintroduce
-  `generateStaticParams`, and do not turn these routes static, without re-deciding that trade.
+- **Every route is dynamic on purpose, declared once in `src/app/layout.tsx`.** The header reads the
+  catalogue for its navigation, so every page touches WordPress, and nothing may be fetched during
+  `npm run build`: a build must not fail because the WordPress tunnel happens to be closed. Do not
+  add `generateStaticParams`, and do not make a page static, without re-deciding that trade. The
+  catalogue's five-minute data cache is what keeps this from being a read on every view.
+- **WordPress being unreachable is an expected state, not an error.** `src/lib/wp/upstream.ts` types
+  it, the listing pages render `OfflineNotice` instead of failing, and the checkout answers demo
+  mode rather than an error: no order is created, and the browser is shown the receipt for what it
+  was about to send. Keep that path working when touching `catalog.ts`, `rest.ts` or the checkout
+  route.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
   order is created server-side with a credential the browser never sees. Nothing is charged, shipped
   or emailed.
