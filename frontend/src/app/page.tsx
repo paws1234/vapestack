@@ -46,6 +46,16 @@ export default async function Home() {
     return product ? [product] : [];
   });
 
+  /*
+    The second call to action named the range the shop stocks least of: it was hardcoded to
+    `/shop/e-liquids`, and the source publishes exactly one product in that range. It now names the
+    deepest range, tie-broken by name so the choice cannot drift between renders, which means the
+    front door's second button always leads somewhere with something behind it.
+  */
+  const deepest = [...categories].sort(
+    (a, b) => b.productCount - a.productCount || a.name.localeCompare(b.name),
+  )[0];
+
   return (
     <Container>
       <section className="relative mt-16 overflow-hidden rounded-3xl border border-ink-800 bg-ink-900 px-6 py-16 sm:px-12 sm:py-24">
@@ -59,11 +69,12 @@ export default async function Home() {
         />
 
         <div className="relative max-w-2xl space-y-6">
-          {/* The ranges themselves, rather than a label that repeats the heading below. */}
-          <span className="text-xs uppercase tracking-[0.25em] text-neon-400">
-            {categories.map((category) => category.name).join(" · ")}
-          </span>
-
+          {/*
+            The hero used to open with an eyebrow listing every range name. With nine ranges that
+            was five lines of 12px uppercase on a phone — the tallest and loudest thing in the hero,
+            in the same neon as the primary action, and not one word of it clickable. It also said
+            what the header nav and the range cards below already say, so the headline leads.
+          */}
           {/*
             The headline was "pick a flavour, pick a strength" while the seeded catalogue's variable
             products offered both. They were retired for an all-imported catalogue of simple
@@ -73,18 +84,26 @@ export default async function Home() {
             Pick a range, pick a device, see the price.
           </h1>
 
-          <p className="text-lg text-ink-200">
-            {products.length} products across {categories.length} ranges, each one priced before it
-            reaches the cart. For adults 21 and over.
-          </p>
+          <div className="space-y-3">
+            <p className="text-lg text-ink-200">
+              {products.length} products across {categories.length} ranges, each one priced before it
+              reaches the cart.
+            </p>
+
+            {/* The shop's age policy is not the tail of a sentence about pricing. */}
+            <p className="text-sm text-ink-400">For adults 21 and over.</p>
+          </div>
 
           <div className="flex flex-wrap gap-3">
             <Link href="/shop" className={buttonStyles("primary", "lg")}>
               Shop everything
             </Link>
-            <Link href="/shop/e-liquids" className={buttonStyles("outline", "lg")}>
-              Browse e-liquids
-            </Link>
+
+            {deepest && (
+              <Link href={`/shop/${deepest.slug}`} className={buttonStyles("outline", "lg")}>
+                Shop {deepest.name}
+              </Link>
+            )}
           </div>
         </div>
       </section>

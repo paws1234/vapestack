@@ -19,7 +19,7 @@ function linkClasses(active: boolean): string {
 }
 
 /**
- * The storefront's navigation below `xl`, as a slide-over panel.
+ * The storefront's navigation below `lg`, as a slide-over panel.
  *
  * Mounted by the root layout rather than by the header, and it has to be: `<header>` is
  * `backdrop-blur`, and a `backdrop-filter` makes that element the containing block for any
@@ -44,7 +44,7 @@ export function MobileNav({ categories }: { categories: Category[] }) {
   useModalBehaviour({ open: isOpen, panelRef, onEscape: close });
 
   /*
-    The panel is `xl:hidden`, but `useModalBehaviour` locks the page scroll while it is open. A
+    The panel is `lg:hidden`, but `useModalBehaviour` locks the page scroll while it is open. A
     visitor who opens the menu on a phone and then rotates or widens past the breakpoint would be
     left with a hidden panel and a page that will not scroll, so crossing it closes the panel.
 
@@ -65,7 +65,7 @@ export function MobileNav({ categories }: { categories: Category[] }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 xl:hidden ${isOpen ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-50 lg:hidden ${isOpen ? "" : "pointer-events-none"}`}
       aria-hidden={!isOpen}
     >
       <div

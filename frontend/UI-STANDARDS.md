@@ -138,6 +138,21 @@ Two families, loaded with `next/font`: Geist Sans (`--font-geist-sans`) and Geis
 | Footer separation | `mt-20` (5rem) | The end of every page. |
 | Page padding | `py-10` | Listing and detail pages. |
 | Card grid | `gap-5`, `sm:grid-cols-2 lg:grid-cols-3` | |
+
+**The hero leads with its `h1`.** A hero may not open with an eyebrow that lists the catalogue —
+measured on 2026-09-11 with nine ranges, that eyebrow was **five lines / 112px on a phone**, in
+`neon-400` (the token reserved for the primary action, where the eyebrow role is `ink-400`), and not
+one word of it was clickable. It also repeated the header nav and the range cards 300px below. The
+hero is now `h1` → one line of body → the age statement → the actions, and it is **116px shorter at
+390** for it.
+
+**A policy line is its own line.** "For adults 21 and over" is the shop's age policy, not the tail
+of a sentence about pricing; it sits in its own `text-sm text-ink-400` paragraph (5.24:1, the
+"Secondary" role above).
+
+**A call to action names a destination the shop can fill.** The hero's second button is derived —
+the range with the most products, tie-broken by name — because the hardcoded one, `/shop/e-liquids`,
+led to the **1**-product range while the primary led to 290.
 | Tile grid | `gap-4`, `sm:grid-cols-3` | |
 
 Radii are role-based, not decorative: `rounded-full` for anything pill-shaped (buttons, chips,
@@ -415,18 +430,26 @@ does not rescue the status — metadata streams too.
 
 | Width | Must be true |
 | --- | --- |
-| **390x844** — phone | Header is wordmark + menu + cart, and the menu reaches Shop, every range and "Shop all" in two taps or fewer. Footer stacks in one column. Cards 1-up. Page `h1` is `text-3xl`. No horizontal overflow. |
-| **768x1024** — tablet | Header is wordmark, "Shop all", search, menu and cart; the **menu panel** reaches every range, because the inline nav starts at `xl` (see below). Cards 2-up. Footer may be 2-up. No horizontal overflow. |
-| **1024x1280** — small laptop | Same header as the tablet: the panel, not the inline nav. Cards 3-up. |
-| **1280x** and up — desktop | Inline nav, all nine ranges plus "Shop all", cards 3-up, container capped at `max-w-6xl`. |
+| **320x800** — the reflow floor | Every header control is present and none is hidden: wordmark, search, menu, cart. The wordmark's tracking tightens from `0.25em` to `0.12em` and the header row's gap from `24px` to `16px` below `sm`, which is what buys back the **29px** the header used to overflow by. No horizontal overflow on any route. |
+| **390x844** — phone | Header is wordmark, search, menu and cart, and the menu reaches Shop, every range and "Shop all" in two taps or fewer. Footer stacks in one column. Cards 1-up. Page `h1` is `text-3xl`. No horizontal overflow. |
+| **768x1024** — tablet | Header is wordmark, "Shop all", search, menu and cart; the **menu panel** reaches every range, because the inline nav starts at `lg`. Cards 2-up. Footer may be 2-up. No horizontal overflow. |
+| **1024x900** — small laptop | The inline nav appears: Shop, the four ranges that are not `Vape <thing>`, and the **`Vape` disclosure** holding the other five. Cards 3-up. No horizontal overflow. |
+| **1280x** and up — desktop | The same nav with room around it, cards 3-up, container capped at `max-w-6xl`. |
 
-**Why the inline nav starts at `xl` and not `md`.** Measured on 2026-09-11 with the nine ranges the
-catalogue holds, the ten nav links need **703px**. Beside the wordmark and the header's controls that
-is **+353px** of overflow at 768 and **+97px** at 1024, and it fits from 1280 (0 at 1280, 1440 and
-1600). `NavLinks` is therefore `xl:flex` and `MobileNavButton` / the panel are `xl:hidden`; the
-panel's resize guard matches at `(min-width: 1280px)`. Before the range count grew, the same header
-overflowed by 45px at exactly 768 — with the nav out of the way that is **0** at 390, 768, 1024, 1280,
-1440 and 1600.
+**Why the header groups ranges, and why the nav starts at `lg`.** Measured on 2026-09-11 with the
+nine ranges the catalogue holds: the flat nav — Shop plus nine links — needs **703px**, and beside the
+wordmark and the header's controls that is **+353px** of overflow at 768 and **+97px** at 1024.
+Putting the five ranges that read `Vape <thing>` behind one `Vape` disclosure (`Vape Kit`, `Vape Mod`,
+`Vape Tanks`, `Vape Coils`, `Vape Accessories`) brings the nav to **576px** — still too wide at 768,
+comfortable from 1024. So `NavLinks` is `lg:flex`, `MobileNavButton` and the panel are `lg:hidden`,
+and the panel's resize guard is `(min-width: 1024px)`. Overflow is **0** at 390, 768, 1024, 1280, 1440
+and 1600 — including the 45px the five-range header used to leak at exactly 768.
+
+The group is matched on the **name** (`/^vape\s/i`), not on a list of slugs, because ranges are
+derived from the catalogue: a tenth "Vape <thing>" range joins the menu by itself. The trigger is a
+disclosure — a `<button>` with `aria-expanded` and `aria-controls` over a list of links, no
+`aria-haspopup`, Escape closing it back to focus — not a `menu` widget. It opens on click, not on
+hover, because hover is unavailable to touch and unpredictable for keyboard users.
 
 Target size: a standalone target (a nav link, a button, a chip) needs **24x24 CSS px** (WCAG 2.5.8).
 Links inside a sentence are exempt; links in a nav are not. Measured today, the desktop nav links are

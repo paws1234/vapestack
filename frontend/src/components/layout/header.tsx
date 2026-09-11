@@ -10,10 +10,16 @@ import type { Category } from "@/lib/wp/types";
 export function Header({ categories }: { categories: Category[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:gap-6 sm:px-8">
+        {/*
+          The wordmark carries less air below `sm` on purpose. At 320px the wordmark, search, menu
+          and cart cannot all fit with 0.25em tracking: measured, the controls ended 29px past the
+          viewport (x=349 in 320px). Tightening the tracking and the row's gap there is what buys
+          the room, rather than hiding a control.
+        */}
         <Link
           href="/"
-          className="text-lg font-semibold tracking-[0.25em] text-ink-50 transition hover:text-neon-400"
+          className="text-base font-semibold tracking-[0.12em] text-ink-50 transition hover:text-neon-400 sm:text-lg sm:tracking-[0.25em]"
         >
           VAPESTACK
         </Link>
@@ -26,8 +32,8 @@ export function Header({ categories }: { categories: Category[] }) {
         <NavLinks categories={categories} />
 
         {/*
-          Below `xl` the inline nav is hidden and the header is tight, so the wordmark and the
-          cart are what is left; "Shop all" is a desktop convenience the menu panel also covers.
+          Below `lg` the inline nav is hidden and the header is tight, so the wordmark and the
+          cart are what is left; "Shop all" is a convenience the menu panel also covers.
 
           `max-md:hidden` rather than `hidden md:inline-flex`: Tailwind v4 emits `.inline-flex`
           after `.hidden`, so the unprefixed `hidden` loses to the display utility `buttonStyles`

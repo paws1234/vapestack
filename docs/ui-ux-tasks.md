@@ -95,6 +95,8 @@ believing it, and measure where content actually ends before drawing a conclusio
 | T13 | Motion and reduced-motion pass | not started | T2 |
 | T14 | Documentation updates | not started | T2–T13 |
 | T15 | End-to-end verification sweep | not started | T1–T14 |
+| T16 | Header ranges, regrouped | done | T2, T3 |
+| T17 | The home hero, after the catalogue grew | done | T2, T11, T16 |
 
 Keep this table in step with the checkboxes: when a task is ticked, change its row here too.
 
@@ -1393,3 +1395,116 @@ considerations rather than building it.
 marked-up Done-when checklist. Report the count of items true and false.
 
 **Size** — M
+
+## T16 — Header ranges, regrouped — `[x]` done
+
+**Goal** — The header stops listing every range. Ranges whose name reads "Vape <thing>" sit behind one
+`Vape` disclosure, the rest stay inline, and every range is still one click or one tap from the
+header at any width.
+
+**Context to load** — `frontend/src/components/layout/nav-links.tsx`, `header.tsx`, `mobile-nav.tsx`,
+`mobile-nav-button.tsx`, `frontend/UI-STANDARDS.md` (Responsive contract).
+
+**In scope** — the desktop nav, and the breakpoint at which it appears. **Out of scope** — the mobile
+panel, which stays a flat list (a vertical list of nine ranges in a 320px drawer has no width problem
+to solve, and one tap still reaches every range), and anything that changes which ranges exist.
+
+**Acceptance criteria**
+
+1. With the catalogue at nine ranges the header does not overflow at 390, 768, 1024, 1280, 1440 or 1600.
+2. Every range is one interaction from the header: a click when the nav is shown, the panel below that.
+3. The disclosure is a keyboard-reachable `button` with `aria-expanded` and `aria-controls`; its items
+   are links; Escape closes it and returns focus to the trigger; a press outside closes it; following a
+   link closes it.
+4. The current range carries `aria-current="page"` wherever it is listed, and the trigger carries the
+   active colour when the current range is one of its items.
+5. Any motion added has a `motion-reduce` neighbour.
+
+**Verify** — measured in a real Chromium at six widths, plus a driven pass (open by Enter, Tab into the
+items, Escape, press outside, follow a link), plus `build`/`tsc`/`lint` and the route sweep.
+Screenshots with the menu open.
+
+**Size** — S
+
+> verified: **the grouping is the difference between "does not fit" and "fits".** The flat nav of nine
+> ranges plus Shop measured **703px** and overflowed by **+353px at 768** and **+97px at 1024**. Grouping
+> the five `Vape <thing>` ranges behind one trigger brings the nav to **576px** (561px at 1024, where it
+> shrinks) — still **135px** too wide at 768, so the nav is `lg:flex`, the panel and its button are
+> `lg:hidden`, and the panel's `matchMedia` guard is **(min-width: 1024px)**. Overflow is then **0** at
+> 390, 768, 1024, 1280, 1440 and 1600.
+
+> verified: the group is matched on the name (`/^vape\s/i`) rather than on a hard-coded list of slugs,
+> because the ranges are derived from the catalogue: a tenth "Vape <thing>" range joins the menu without
+> an edit. The inline set is Shop, Disposable Vape, E-Liquids, Nicotine Pouches and Pod Cartridge.
+
+> verified: **the disclosure behaves as one.** Driven against the production build — when closed,
+> `aria-expanded="false"` and the panel carries `hidden` (so its five links are out of the tab order);
+> **Enter** on the trigger opens it and the panel reports `display` other than `none` with exactly
+> `Vape Accessories, Vape Coils, Vape Kit, Vape Mod, Vape Tanks`; **Tab** from the trigger lands on
+> `Vape Accessories`; **Escape** closes it and focus is back on the `Vape` trigger; a **pointer press
+> outside** closes it; following **Vape Coils** lands on `/shop/vape-coils` with the menu closed, that
+> item carrying `aria-current="page"`, and the trigger measured in `rgb(182, 255, 61)` — the neon
+> token. `aria-haspopup` is deliberately absent: the contents are links, not a `menu` widget.
+
+> verified: `npm run build` clean from a wiped `.next`, `npx tsc --noEmit` clean, `npm run lint` clean.
+> Route sweep — **8 routes × 3 widths: 24/24 at 200, overflow 0, exactly one `h1`** each.
+> Screenshots: `/tmp/ui/grow/nav-open-1440.png`, `nav-current-coils-1440.png`.
+
+## T17 — The home hero, after the catalogue grew — `[x]` done
+
+**Goal** — The front door says one thing at a time. The hero leads with its headline, its second
+button leads somewhere with stock behind it, the age policy is not the tail of a sentence about
+pricing, and the header survives a 320px viewport again.
+
+**Why it is a task.** T12 of `docs/import-tasks.md` took the catalogue to nine ranges and 290
+products. The home page grew with it: the hero's eyebrow listed all nine range names, and its second
+call to action still pointed at `/shop/e-liquids`, which holds **one** product. Measured before the
+change at 390x844: eyebrow **5 lines / 112px**, hero **625px**; at 320: **29px of horizontal
+overflow** from the header's own controls.
+
+**Context to load** — `frontend/src/app/page.tsx`, `components/layout/header.tsx`,
+`frontend/UI-STANDARDS.md` (Type and spacing rhythm, Responsive contract).
+
+**In scope** — the home hero and the header's smallest width. **Out of scope** — the rest of the home
+page, the range cards, and the mobile panel.
+
+**Acceptance criteria**
+
+1. The first element a visitor sees in the hero is the `h1`.
+2. Both calls to action lead to a range the shop actually stocks.
+3. The age statement is its own line and meets contrast for its size.
+4. No horizontal overflow at 320, 390, 768 or 1440 on any route.
+
+**Verify** — measured in a real Chromium at four widths, plus the route sweep and `build`/`tsc`/`lint`.
+
+**Size** — S
+
+> verified: the eyebrow is gone and the `h1` leads. Hero **625px → 509px at 390** (116px shorter) and
+> the page with it (8,755px → 8,639px); still 500px at 768 and 1440. Both buttons remain above the
+> fold at every width (hero bottom 85px above it at 320, 202px at 390).
+
+> verified: the second call to action is derived — the range with the most products, tie-broken by
+> name — and now reads **"Shop Disposable Vape" → `/shop/disposable-vape` (40 products)** instead of
+> "Browse e-liquids" → `/shop/e-liquids` (**1**). The hero renders no second button at all when the
+> catalogue is empty, because an empty catalogue has no ranges.
+
+> verified: the age line is its own `text-sm text-ink-400` paragraph — measured `14px`,
+> `rgb(124, 133, 152)` on the `ink-900` hero, which is the 5.24:1 "Secondary" row of the contrast
+> table, not the 18px body line it used to trail.
+
+> verified: **the 320px header overflow is fixed without hiding a control.** Measured before: the
+> controls row ended at **x=349** in a 320px viewport, 29px past it, with the wordmark at 146px and
+> `0.25em` tracking. Tightening the tracking to `0.12em` and the row gap to `gap-4` below `sm` brings
+> the wordmark to **109px** and the row to **x=304**: overflow **0** at 320, on all **11 routes**
+> checked (`/`, `/shop`, `/shop/e-liquids`, `/shop/vape-coils`, a product page, `/checkout` and the
+> five info pages). Search, menu and cart are all still there.
+
+> verified: `npm run build` clean, `npx tsc --noEmit` clean, `npm run lint` clean, and the route
+> sweep is **24/24 at 200 with overflow 0 and one `h1`** at 1440/768/390. Screenshots:
+> `/tmp/ui/grow/home-new-{320,390,768,1440}.png`.
+
+> **Left undone deliberately:** capping "One from each range" at six. That section shows one product
+> per *range*, so it grows with the range count (stable at nine) rather than the product count, and
+> every honest cap needs a heading that no longer describes the section. If the phone page is still
+> too long, the lever is the nine range cards, not the product grid — say the word and it is a
+> separate task.

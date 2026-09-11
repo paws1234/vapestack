@@ -425,6 +425,11 @@ below 1280px. Driven by the owner's "add those different products".
 > panel is `xl:hidden` with its resize guard moved to `(min-width: 1280px)`. Overflow after the
 > change: **0** at 390, 768, 1024, 1280, 1440 and 1600 — which also clears the **45px** that the old
 > five-range header leaked at exactly 768 (T11's note above).
+>
+> **Superseded the same day by T16 in `docs/ui-ux-tasks.md`**, at the owner's request: the header no
+> longer lists nine ranges at all. The five that read `Vape <thing>` sit behind one `Vape` disclosure,
+> which brings the nav to **576px** and lets the breakpoint come back to `lg` (1024). The numbers
+> above are what the *flat* nav needed and are kept as the reason the grouping exists.
 
 > verified: **a documented a11y behaviour had been lost and is now restored.** `docs/ui-ux-tasks.md`
 > records that T1 moved the header's inline nav into `NavLinks` so the current range carries

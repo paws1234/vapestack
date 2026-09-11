@@ -22,10 +22,10 @@ function MenuIcon() {
 }
 
 /**
- * The header's menu trigger, below `xl` only.
+ * The header's menu trigger, below `lg` only.
  *
- * The breakpoint matches the one `NavLinks` appears at: with nine ranges the inline nav does not fit
- * until 1280, so below that the panel is what holds them.
+ * The breakpoint matches the one `NavLinks` appears at: with the hardware ranges grouped the inline
+ * nav still needs 576px, so below 1024 the panel is what holds them.
  *
  * `xl:hidden` rather than `hidden`: Tailwind v4 emits `.hidden` before the display utilities, so an
  * unprefixed `hidden` loses to whichever one is emitted later. Variants are emitted after the base
@@ -49,7 +49,7 @@ export function MobileNavButton() {
       aria-expanded={isOpen}
       aria-controls="mobile-nav"
       className={[
-        "xl:hidden",
+        "lg:hidden",
         "inline-flex size-9 items-center justify-center rounded-full",
         "border border-line text-ink-50 transition hover:border-neon-400 hover:text-neon-400",
       ].join(" ")}
