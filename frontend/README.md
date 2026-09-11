@@ -9,10 +9,10 @@ orders over the WooCommerce REST API, and holds the cart in the browser. See the
 ```bash
 cp .env.local.example .env.local    # then fill in the four URL values and the credential
 npm install
-npm run dev                         # http://localhost:3001
+npm run dev                         # http://localhost:3000
 ```
 
-Port 3000 is taken on this machine, so the development server uses 3001.
+Next uses port 3000 and falls back to 3001 when that port is taken, so read the port it prints.
 
 | Script | What it does |
 | --- | --- |

@@ -32,10 +32,11 @@ bash tools/install-plugins.sh                              # WooCommerce, WPGrap
 
 cp frontend/.env.local.example frontend/.env.local         # then fill in the credentials
 env -C frontend npm install
-env -C frontend npm run dev                                # storefront on :3001
+env -C frontend npm run dev                                # storefront on :3000
 ```
 
-Port 3000 is taken on the development machine, so the frontend runs on 3001.
+`next dev` uses port 3000 and falls back to 3001 when something else already holds it, so check
+the port it prints rather than assuming one.
 
 ## How the deploy works
 
