@@ -48,7 +48,7 @@ export const PAYMENT_METHODS: readonly PaymentMethod[] = [
   {
     id: "qr",
     label: "QR payment",
-    summary: "A demonstration code only — there is no merchant account behind it.",
+    summary: "A real, scannable code — it points at this shop. No merchant account, so no charge.",
     slug: "vapestack_qr",
     recorded: "Simulated QR payment (demo)",
   },

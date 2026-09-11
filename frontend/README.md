@@ -70,7 +70,10 @@ internal URL can reach the browser.
   challenge and a declined card creates no order at all. The request body carries
   `payment: "card" | "qr" | "cod"` and nothing else — no number, no expiry, no code. The chosen
   method is recorded on the WooCommerce order as `payment_method`/`payment_method_title`, in words
-  that say it was simulated, and on the demo receipt in the same words.
+  that say it was simulated, and on the demo receipt in the same words. The QR method's symbol is a
+  **real** one: `qrcode.react` encodes `absoluteUrl("/checkout")` into a scannable code and the
+  address is printed beside it, because a code that points at nothing is the dishonest version —
+  there is still no merchant behind it, so it cannot charge anything.
 - **There is no root `loading.tsx`, and adding one is a bug, not a nicety.** Measured by toggling
   only that file: with it, `/product/does-not-exist` and `/shop/does-not-exist` answer **200** five
   times out of five; without it, **404** five times out of five. A `loading.tsx` opens a Suspense

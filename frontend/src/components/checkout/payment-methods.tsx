@@ -1,5 +1,7 @@
 "use client";
 
+import { QRCodeSVG } from "qrcode.react";
+
 import { CardForm } from "@/components/checkout/card-form";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,6 +12,7 @@ import {
   type CardErrors,
   type PaymentMethodId,
 } from "@/lib/payment-simulation";
+import { absoluteUrl } from "@/lib/site";
 
 /**
  * How the visitor would like to pretend to pay.
@@ -27,6 +30,10 @@ import {
  * Every claim here is labelled. The block carries a `Simulation` pill, the test numbers are printed
  * with what they do, and the 3-D Secure code is on the page rather than in a developer's head.
  * There is no card-brand logo and no padlock, because neither would be true.
+ *
+ * The QR is the one method whose artefact is genuine: a real symbol, carrying a real address in
+ * this shop (see {@link QrPanel}). It is a demonstration of the *flow*, not of a payment, and both
+ * the note beside it and the address itself are on the page rather than implied.
  *
  * @param props.value      The method currently chosen.
  * @param props.onChange   Called with the newly chosen method.
@@ -154,100 +161,71 @@ export function PaymentMethods({
 }
 
 /**
- * The QR demonstration.
+ * The QR panel.
  *
- * A drawn code rather than a real one, because there is no merchant to pay: a genuine QR would be
- * a lie about what it points at, and it would need a dependency to produce. The mark is decorative
- * (`aria-hidden`) and every word that describes it is in the text beside it, so nothing is lost to
- * a visitor who cannot see it.
+ * The symbol is a real one. It used to be a drawing — markers plus a deterministic filler — on the
+ * grounds that a genuine code would be a lie about what it points at. That reasoning was backwards:
+ * a code that points at *nothing* is the lie, and a real symbol carrying a real address in this
+ * shop needs no merchant account to be honest. `qrcode.react` produces it, so what a phone camera
+ * reads is an address rather than a pattern.
+ *
+ * The address is printed beside the code, which is what a visitor without a camera (or with a phone
+ * that cannot reach a development host) reads instead. Nothing about the payment changes: there is
+ * no merchant behind the code, so it cannot charge anything, and the note says so.
+ *
+ * Encoded during render rather than painted on a canvas: the symbol is part of the markup, so there
+ * is no measuring pass on the client and the server's HTML already holds the same code.
  */
 function QrPanel() {
+  /*
+    Absolute, because a scanner has no page to resolve a relative path against. `NEXT_PUBLIC_SITE_URL`
+    is inlined at build time, so the server render and the hydration render encode one string.
+  */
+  const target = absoluteUrl("/checkout");
+
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <QrMark />
+      {/*
+        The light plate is the quiet zone a scanner needs: 2 modules of it are inside the symbol and
+        the padding here adds the rest, which is why the plate is `ink-50` rather than the panel's
+        own dark background.
+      */}
+      <div className="rounded-xl border border-line bg-ink-50 p-2">
+        <QRCodeSVG
+          value={target}
+          size={QR_PIXELS}
+          level="M"
+          marginSize={2}
+          bgColor={QR_LIGHT}
+          fgColor={QR_DARK}
+          title={`QR code containing ${target}`}
+        />
+      </div>
 
       <div className="min-w-[14rem] flex-1">
-        <p className="text-sm font-medium text-ink-50">QR payment — a demonstration code</p>
+        <p className="text-sm font-medium text-ink-50">QR payment — a real code, still a demo</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-400">
-          This is a drawing of a QR code, not a working one. There is no merchant account behind it
-          and nothing to scan, so it cannot take a payment — it shows what a QR method would look
-          like in a real shop. Submitting records that this method was simulated.
+          This is a working QR code, not a drawing of one: a phone camera reads it, and what it reads
+          is this shop&rsquo;s own checkout address, printed below. Any phone that can reach this
+          host opens that page; there is no merchant account behind the code, so it cannot take a
+          payment. It shows what a QR method would look like in a real shop, and submitting records
+          that this method was simulated.
+        </p>
+        <p className="mt-2 font-mono text-[0.7rem] leading-relaxed break-all text-ink-200">
+          {target}
         </p>
       </div>
     </div>
   );
 }
 
-/** Size of the drawn code, in cells and in pixels. */
-const QR_CELLS = 21;
-const QR_PIXELS = 132;
+/** How wide the symbol is in pixels. */
+const QR_PIXELS = 148;
 
-/** The three position markers of a QR code, as top-left corners in a 21x21 grid. */
-const FINDERS: readonly [number, number][] = [
-  [0, 0],
-  [QR_CELLS - 7, 0],
-  [0, QR_CELLS - 7],
-];
-
-/**
- * The pattern of one cell.
- *
- * Deterministic on purpose: a random pattern would differ between the server render and the
- * hydration render and show up as a mismatch. `null` means "not inside a marker", which falls
- * through to the filler below.
- *
- * @param x Column.
- * @param y Row.
- */
-function finderCell(x: number, y: number): boolean | null {
-  for (const [fx, fy] of FINDERS) {
-    const dx = x - fx;
-    const dy = y - fy;
-
-    if (dx >= 0 && dx < 7 && dy >= 0 && dy < 7) {
-      const ring = Math.max(Math.abs(dx - 3), Math.abs(dy - 3));
-
-      return 3 === ring || ring <= 1;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Whether one cell of the drawn code is dark.
- *
- * @param x Column.
- * @param y Row.
- */
-function isDark(x: number, y: number): boolean {
-  const marker = finderCell(x, y);
-
-  return marker ?? 0 === (x * 5 + y * 11 + ((x * y) % 7)) % 3;
-}
-
-/** A drawing of a QR code. Decorative; the text beside it carries the meaning. */
-function QrMark() {
-  const cells = [];
-
-  for (let y = 0; y < QR_CELLS; y += 1) {
-    for (let x = 0; x < QR_CELLS; x += 1) {
-      if (isDark(x, y)) {
-        cells.push(<rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} />);
-      }
-    }
-  }
-
-  return (
-    <svg
-      viewBox={`0 0 ${QR_CELLS} ${QR_CELLS}`}
-      width={QR_PIXELS}
-      height={QR_PIXELS}
-      aria-hidden="true"
-      shapeRendering="crispEdges"
-      className="rounded-xl border border-line bg-ink-50 p-2"
-    >
-      <g fill="#07080c">{cells}</g>
-    </svg>
-  );
-}
+/*
+  The symbol's own two colours, because a Tailwind class cannot reach a `fill` the component sets
+  as a presentation attribute. These literals are `--color-ink-50` and `--color-ink-950` from
+  `globals.css`.
+*/
+const QR_LIGHT = "#f5f7fb";
+const QR_DARK = "#07080c";

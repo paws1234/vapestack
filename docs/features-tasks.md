@@ -327,6 +327,25 @@ report `scrollWidth === clientWidth` at 390; confirm each PNG with `file`.
 > Shots `/tmp/ui/f3/payment-{card,qr,cod}-{1440,768,390}.png`, nine files, `file` reports 1440x900,
 > 768x1024 and 390x844.
 >
+> **The QR is a real, scannable code as of 2026-09-11** — it was a drawing of one (21x21 rects, no
+> meaning). `qrcode.react@4.2.0` is now a dependency of `frontend/`, the panel encodes
+> `absoluteUrl("/checkout")` and prints that address in `font-mono` beside the symbol.
+> `/tmp/qr/verify.cjs` (Playwright 1.62 + its own Chromium, against `next start` on **3001** after
+> `npm run build`; `vapestack-cart` seeded with product 710 so the form renders) reports the symbol
+> as `svg[role="img"]`, `viewBox 0 0 33 33`, 148x148, `title="QR code containing
+> http://localhost:3000/checkout"`, **2** drawable children (2 paths, **0** rects) and
+> `overflow 0` / clean console at 1440, 768 and 390. **jsQR 1.4.0** — nobody's encoder, and not the
+> one the page uses — read the payload **twice per width**: from the symbol's own markup drawn to a
+> canvas, and from the **pixels of a screenshot of the symbol**. All six reads returned exactly
+> `http://localhost:3000/checkout` (version 3). The *production* address
+> (`https://vapestack-paws1234s-projects.vercel.app/checkout`, 56 bytes) is **v4 / 37 modules at
+> 148px = 4.0px per module**, and `/tmp/qr/payload-decode.cjs` (the component rendered through
+> `react-dom/server`) decodes that one upscaled **and at 1:1**.
+>
+> TRAP: React's `outerHTML` on an `<svg>` carries **no `xmlns`**, so a `data:image/svg+xml` URL
+> built from it fails with `EncodingError: The source image cannot be decoded`; and `drawImage`
+> refuses a live `<svg>` **root** element — rasterise through an `Image` or a screenshot.
+>
 > TRAP worth keeping: **a `required` control inside the always-mounted `inert` dialog stops the
 > checkout form dead.** The 3-D Secure dialog has to stay mounted to be `inert` when closed (the
 > same reason the drawer and the nav do), and a `required` input in it made the browser refuse to

@@ -242,8 +242,12 @@ plumbing. Each is independently verifiable.
 Card, Simulated GCash/Maya QR, and Cash on Delivery (Simulated) … Typing a test card like 4242…
 triggers a mock 3D Secure / OTP Modal asking the user for a 6-digit code ('Enter code 123456'),
 complete with a loading spinner and a success checkmark before routing to the success page."* — All
-kept. The QR method is a rendered, non-functional QR image with its own explanatory note, since
-there is no merchant to pay.
+kept, with one correction made after the fact. The QR method was first built as a *drawn*,
+non-functional symbol, on the reasoning that a genuine code "would be a lie about what it points
+at". That reasoning is backwards: a symbol that points at **nothing** is the lie. The method is now
+a **real, scannable QR code** (`qrcode.react`, ECC level M) carrying this shop's own checkout
+address, printed beside it in full. There is still no merchant account behind the code, so it
+cannot charge anything — which is what the note beside it says.
 
 ---
 
