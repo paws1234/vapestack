@@ -41,7 +41,7 @@ rule. It is the file to read before changing anything on screen.
 | --- | --- |
 | `frontend/` | The Next.js storefront. Its own README covers the app itself. |
 | `wp-content/themes/vapestack-theme/` | The project's WordPress code: `tools/import-source-products.php` imports the fixture in `tools/data/`, and `tools/seed-products.php` is the original six-product demo catalogue, no longer loaded. |
-| `tools/` | Host-side scripts: plugin install, the source fetcher, tunnel. |
+| `tools/` | Host-side scripts: plugin install, the source fetcher, the tunnel, and the contact form's mail key. |
 | `resources/` | Brand assets: the supplied artwork and the generator that turns it into the site's tab icon. Nothing here is served directly. |
 | `docs/` | The original brief, setup notes, and the frozen GraphQL contract. |
 | `.claude/` | The plan and its task list — the record of what was built and how it was verified. |
@@ -67,6 +67,20 @@ env -C frontend npm run dev                                # storefront on :3000
 
 `next dev` uses port 3000 and falls back to 3001 when something else already holds it, so check
 the port it prints rather than assuming one.
+
+### The contact form's mail key
+
+The contact form is the one part of this site that sends email, and it needs a provider to send it
+through. Both the form and the route work without one — a submission is answered honestly and handed
+to the visitor's own mail client — but nothing is delivered until a key exists:
+
+```bash
+bash tools/configure-contact-mail.sh    # prompts for a Resend key, sends a test message, saves it
+```
+
+The prompt reads the key with `read -s`, so it is never echoed and never passed as an argument. The
+same key has to be added to the deployed project's environment variables as well, or the deployed
+form keeps answering that it has no provider.
 
 ## How the deploy works
 
@@ -96,7 +110,10 @@ bash tools/tunnel.sh                                      # tunnel up, environme
 ```
 
 `NEXT_PUBLIC_SITE_URL` is the storefront's own origin, and it is the one variable `tools/tunnel.sh`
-does not set. It is a `NEXT_PUBLIC_` variable, so Next inlines it at build time and it has to be in
+does not set. The contact form's `RESEND_API_KEY` is the other one it does not: it is set once in
+the Vercel dashboard (or with `vercel env add`), not per tunnel, because nothing about it depends on
+the tunnel. A new variable needs a deployment to exist at all; a changed one is read at request
+time. It is a `NEXT_PUBLIC_` variable, so Next inlines it at build time and it has to be in
 place **before** a build — setting it afterwards only affects the next deployment. Unset, it falls
 back to `http://localhost:3000`, which is right for `next dev` and wrong for everything else: the
 canonical link on every page, `/robots.txt` and all 306 entries in `/sitemap.xml` would name the
