@@ -1,28 +1,40 @@
 import Link from "next/link";
+import { Pagination } from "@/components/product/pagination";
 import { ProductCard } from "@/components/product/product-card";
 import { SortControl } from "@/components/product/sort-control";
 import { buttonStyles } from "@/components/ui/button";
+import type { Paged } from "@/lib/pagination";
 import type { Sort } from "@/lib/product-sort";
 import type { Product } from "@/lib/wp/types";
 
 /**
- * A grid of products, in the order the page read out of the URL.
+ * One page of a listing, its pager, and the line that says what is on it.
  *
- * A server component, and deliberately dumb: the ordering and the filtering both happen before it
- * renders, so what is sent is the grid a visitor asked for rather than one that re-sorts itself
- * once JavaScript arrives. The only interactive thing here is `SortControl`, which is a client
- * component in its own file.
+ * A server component, and deliberately dumb: the filtering, the ordering and the paging all happen
+ * before it renders, so what is sent is the page a visitor asked for rather than one that re-sorts
+ * itself once JavaScript arrives. It takes the whole `Paged` object rather than a product array so
+ * the count line, the grid and the pager cannot disagree about which slice they are showing — there
+ * is no way to hand it page 3's products with page 1's numbers.
  *
- * @param props.products Products to show, already filtered by the page and already in order.
- * @param props.sort     The ordering in use, so the control never disagrees with the grid.
+ * @param props.paged    The page to show, already sliced.
+ * @param props.sort     The ordering in use, so the control and the pager never disagree with it.
+ * @param props.basePath Listing this page belongs to, e.g. `/shop`.
  */
-export function ProductGrid({ products, sort }: { products: Product[]; sort: Sort }) {
+export function ProductGrid({
+  paged,
+  sort,
+  basePath,
+}: {
+  paged: Paged<Product>;
+  sort: Sort;
+  basePath: string;
+}) {
   /*
     An empty listing is a designed state rather than an empty grid with a "0 products" line over
     it: the count and the sort control are both meaningless with nothing to count or order, so the
     panel replaces the whole block and offers the one useful way out.
   */
-  if (products.length === 0) {
+  if (paged.total === 0) {
     return (
       <div className="rounded-3xl border border-ink-700 bg-ink-900 p-8 sm:p-10">
         <p className="text-xs uppercase tracking-[0.25em] text-neon-400">Nothing listed</p>
@@ -56,17 +68,21 @@ export function ProductGrid({ products, sort }: { products: Product[]; sort: Sor
           URL and the server re-renders the grid underneath it.
         */}
         <p className="text-sm text-ink-400" aria-live="polite" aria-atomic="true">
-          {products.length} {products.length === 1 ? "product" : "products"}
+          {paged.pageCount > 1
+            ? `${paged.from}–${paged.to} of ${paged.total} products`
+            : `${paged.total} ${paged.total === 1 ? "product" : "products"}`}
         </p>
 
         <SortControl sort={sort} />
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((product, index) => (
+        {paged.items.map((product, index) => (
           <ProductCard key={product.id} product={product} eager={index < 3} />
         ))}
       </div>
+
+      <Pagination paged={paged} sort={sort} basePath={basePath} />
     </div>
   );
 }

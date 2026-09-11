@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { GROUP_LABEL, splitRanges } from "@/lib/nav";
+import { useDisclosure } from "@/lib/use-disclosure";
 import type { Category } from "@/lib/wp/types";
 
 /**
@@ -24,28 +25,6 @@ function linkClasses(active: boolean): string {
 }
 
 /**
- * The ranges the header groups behind one button instead of listing.
- *
- * Matched on the name rather than on a hard-coded list of slugs, because the ranges are derived
- * from the catalogue: the hardware shelf is exactly the ranges that read "Vape <thing>", and a
- * tenth one arriving tomorrow belongs in the same menu without an edit here.
- */
-const GROUP_LABEL = "Vape";
-const GROUP_PATTERN = /^vape\s/i;
-
-/** Splits the ranges into the ones the header lists and the ones it tucks into the menu. */
-function splitRanges(categories: Category[]): { inline: Category[]; grouped: Category[] } {
-  const inline: Category[] = [];
-  const grouped: Category[] = [];
-
-  for (const category of categories) {
-    (GROUP_PATTERN.test(category.name) ? grouped : inline).push(category);
-  }
-
-  return { inline, grouped };
-}
-
-/**
  * The header's range navigation.
  *
  * A client component only because the current path is a browser fact on a server-rendered header:
@@ -57,60 +36,17 @@ function splitRanges(categories: Category[]): { inline: Category[]; grouped: Cat
  * plus Shop and the header's controls need about 700px — more than a tablet has. Grouping the
  * hardware ranges brings the nav to **576px**, which still does not fit at 768 but fits from 1024,
  * so the nav is `lg:flex` and the menu panel covers everything narrower. Every range stays one
- * click away either way.
- *
- * **Disclosure, not a menu widget.** The trigger is a `<button>` with `aria-expanded` and
- * `aria-controls` over a plain list of links, which is what the APG calls a disclosure navigation;
- * `aria-haspopup` is deliberately absent, because it would promise a `menu` role the contents do
- * not have. Escape closes it and returns focus to the trigger, a pointer press outside closes it,
- * and following a link closes it — which is why no effect needs to watch the pathname to know a
- * navigation happened.
+ * click away either way. Which ranges are grouped is `lib/nav.ts`'s rule, shared with the footer;
+ * the open/close behaviour is `lib/use-disclosure.ts`'s, also shared.
  *
  * @param props.categories Ranges to list, empty when the catalogue could not be read.
  */
 export function NavLinks({ categories }: { categories: Category[] }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const groupRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { open, toggle, close, containerRef, triggerRef } = useDisclosure();
 
   const { inline, grouped } = splitRanges(categories);
   const groupActive = grouped.some((category) => `/shop/${category.slug}` === pathname);
-
-  /*
-    Listeners exist only while the menu is open: Escape closes it and hands focus back to the
-    trigger, and a press anywhere else closes it without stealing focus. A document listener rather
-    than `onBlur`, because a click on the page background does not move focus and would leave the
-    menu open.
-  */
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if ("Escape" !== event.key) {
-        return;
-      }
-
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
-
-    function onPointerDown(event: PointerEvent) {
-      if (!groupRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
 
   return (
     <nav aria-label="Categories" className="hidden items-center gap-6 text-sm lg:flex">
@@ -138,13 +74,13 @@ export function NavLinks({ categories }: { categories: Category[] }) {
       })}
 
       {grouped.length > 0 && (
-        <div ref={groupRef} className="relative">
+        <div ref={containerRef} className="relative">
           <button
             type="button"
             ref={triggerRef}
             aria-expanded={open}
             aria-controls="nav-group"
-            onClick={() => setOpen((value) => !value)}
+            onClick={toggle}
             className={`${linkClasses(groupActive)} inline-flex items-center gap-1`}
           >
             {GROUP_LABEL}
@@ -175,7 +111,7 @@ export function NavLinks({ categories }: { categories: Category[] }) {
                   <Link
                     href={`/shop/${category.slug}`}
                     aria-current={active ? "page" : undefined}
-                    onClick={() => setOpen(false)}
+                    onClick={close}
                     className={`block rounded-xl px-3 py-2 transition ${active
                         ? "bg-neon-400/10 text-neon-400"
                         : "text-ink-200 hover:bg-ink-800 hover:text-neon-400"

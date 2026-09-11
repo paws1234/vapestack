@@ -189,6 +189,21 @@ top of it. Do not "simplify" it to a controlled select. The URL is the state: th
 what makes a sorted shop shareable and the back button correct (both verified: the select follows
 the URL back to `name`, and the grid follows it).
 
+**The pager is made of links, and its page size is nine.** `PAGE_SIZE` is nine because that is three
+rows of the three-up grid; the page number rides in the URL beside the ordering (`?sort=…&page=3`)
+and `listingHref()` is the one function that builds such an address, so the pager's links, the page's
+own links and the canonical cannot disagree. Like the chips, the pager's pills are
+`rounded-full border-line`, the current page is `border-neon-400 bg-neon-400/10 text-neon-400` with
+`aria-current="page"`, and "Previous"/"Next" are disabled text — not links — at the ends, so the row
+does not change width as it moves. **An out-of-range page is a 404**: `/shop?page=99` showing page 1
+would be the same lie as an empty range rendering a listing.
+
+**The footer groups its ranges the same way the header does.** `lib/nav.ts` owns which ranges are
+grouped (names that read `Vape <thing>`) and `lib/use-disclosure.ts` owns how a disclosure opens —
+Escape, the focus return, the outside press — so the header's floating menu and the footer's in-place
+list cannot drift apart. A footer column expands **in place**: there is nothing to overlay in a
+footer, and pushing the rows below down is how a list opens.
+
 Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
 keyboard, is struck through, and is explained by a notice that names the working alternative.
 

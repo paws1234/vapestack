@@ -293,6 +293,11 @@ shop. The attachment carries the same two pieces of provenance and `_vapestack_s
 `reset` deletes it with the product. No image file is committed to the storefront, so every product
 image — there is one per product, none shared — is served by WordPress.
 
+**The listings page in memory, not with a second query.** `products` is asked for once, unpaged, and
+`/shop` slices the result nine at a time (`lib/pagination.ts`). A range's page is therefore the same
+read as the shop page, and `?page=99` needs no request to be refused — the app already knows how
+many products it has. `first:`/`after:` are for reading the catalogue, not for paging a listing.
+
 The nine ranges are not registered anywhere: `getCatalogue()` derives them from the products, so they
 appear in the navigation, the shop chips and the home page by themselves. Delete the last product in
 a range and the range goes with it — which is why an empty range answers 404 rather than rendering an

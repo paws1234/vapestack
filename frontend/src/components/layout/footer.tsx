@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { AgeGateReset } from "@/components/layout/age-gate-reset";
+import { FooterRangeGroup } from "@/components/layout/footer-range-group";
 import { Container } from "@/components/ui/container";
+import { GROUP_LABEL, splitRanges } from "@/lib/nav";
 import { getCatalogue } from "@/lib/wp/catalog";
 
 /** Where the demo is deployed, and where its source lives. */
 const LIVE_URL = "https://vapestack-paws1234s-projects.vercel.app";
 const REPO_URL = "https://github.com/paws1234/vapestack";
+
+/** One footer link's classes, so the shop column and the other columns cannot drift apart. */
+const LINK = "text-ink-200 transition hover:text-neon-400";
 
 /** One titled column of links. */
 function FooterColumn({
@@ -22,7 +27,7 @@ function FooterColumn({
       <ul className="mt-4 space-y-2 text-sm">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="text-ink-200 transition hover:text-neon-400">
+            <Link href={link.href} className={LINK}>
               {link.label}
             </Link>
           </li>
@@ -42,18 +47,14 @@ function FooterColumn({
  *
  * The category links are read from the catalogue and degrade to "Shop all" alone when WordPress
  * cannot be reached. The footer is not worth failing a page over, exactly as the header is not,
- * and that fallback is why the shop column is built from an array rather than written out by hand.
+ * and that fallback is why the shop column is built from the catalogue rather than written out by
+ * hand. The hardware ranges are grouped behind one `Vape` trigger — the same rule and the same
+ * behaviour as the header's menu (`lib/nav.ts`, `lib/use-disclosure.ts`), so a nine-range catalogue
+ * does not turn the column into a wall of ten links.
  */
 export async function Footer() {
   const categories = (await getCatalogue())?.categories ?? [];
-
-  const shopLinks = [
-    { href: "/shop", label: "Shop all" },
-    ...categories.map((category) => ({
-      href: `/shop/${category.slug}`,
-      label: category.name,
-    })),
-  ];
+  const { inline, grouped } = splitRanges(categories);
 
   return (
     <footer className="mt-20 border-t border-ink-800 bg-ink-900/40">
@@ -66,24 +67,44 @@ export async function Footer() {
               nothing here is really for sale.
             </p>
             <p className="mt-4 flex flex-wrap gap-4 text-sm">
-              <a
-                href={LIVE_URL}
-                className="text-ink-400 transition hover:text-neon-400"
-                rel="noreferrer"
-              >
+              <a href={LIVE_URL} className="text-ink-400 transition hover:text-neon-400" rel="noreferrer">
                 Live demo
               </a>
-              <a
-                href={REPO_URL}
-                className="text-ink-400 transition hover:text-neon-400"
-                rel="noreferrer"
-              >
+              <a href={REPO_URL} className="text-ink-400 transition hover:text-neon-400" rel="noreferrer">
                 Source
               </a>
             </p>
           </div>
 
-          <FooterColumn title="Shop" links={shopLinks} />
+          {/*
+            Built here rather than through `FooterColumn`: this column is the only one that mixes
+            plain links with a disclosure, and the group has to sit inside the same list.
+          */}
+          <div>
+            <h2 className="text-xs uppercase tracking-[0.25em] text-ink-400">Shop</h2>
+
+            <ul className="mt-4 space-y-2 text-sm">
+              <li>
+                <Link href="/shop" className={LINK}>
+                  Shop all
+                </Link>
+              </li>
+
+              {inline.map((category) => (
+                <li key={category.slug}>
+                  <Link href={`/shop/${category.slug}`} className={LINK}>
+                    {category.name}
+                  </Link>
+                </li>
+              ))}
+
+              {grouped.length > 0 && (
+                <li>
+                  <FooterRangeGroup label={GROUP_LABEL} items={grouped} />
+                </li>
+              )}
+            </ul>
+          </div>
 
           <FooterColumn
             title="About"

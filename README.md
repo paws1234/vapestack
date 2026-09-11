@@ -24,7 +24,7 @@ plainly that no order was created.
 | Route | What it is |
 | --- | --- |
 | `/` | Hero, every range with one product each, and one honest paragraph about what this shop is. |
-| `/shop`, `/shop/[category]` | The catalogue and one range. Sorting lives in the URL (`?sort=price-asc`), the sort control is a real `GET` form so it works without JavaScript, and the result count is announced. |
+| `/shop`, `/shop/[category]` | The catalogue and one range, **nine products a page** with the page in the URL (`?page=3`). Sorting lives in the URL too (`?sort=price-asc`), the sort control is a real `GET` form and the pager is made of links, so both work without JavaScript, and the result count is announced. |
 | `/product/[slug]` | One product: breadcrumbs, live option selectors with per-combination stock, a quantity stepper, details and the shipping statement, the rest of its range, and `Product` + `BreadcrumbList` JSON-LD. |
 | `/checkout`, `/checkout/success/[id]` | The demo checkout and the receipt for the order it created. No payment is taken. |
 | `/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms` | Info and legal pages. None of them reads the catalogue, so all five render with WordPress stopped. |

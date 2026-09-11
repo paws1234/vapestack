@@ -1,32 +1,53 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { CategoryChips } from "@/components/product/category-chips";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Container } from "@/components/ui/container";
+import { listingHref, PAGE_SIZE, paginate, parsePage } from "@/lib/pagination";
 import { parseSort, sortProducts } from "@/lib/product-sort";
 import { getCatalogue } from "@/lib/wp/catalog";
 
-export const metadata: Metadata = {
-  title: "Shop",
-  description: "Every device, liquid and pod in the Vapestack catalogue.",
-};
-
 type ShopPageProps = {
-  searchParams: Promise<{ sort?: string | string[] }>;
+  searchParams: Promise<{ sort?: string | string[]; page?: string | string[] }>;
 };
 
 /**
- * The whole catalogue.
+ * Titles the page, and gives a sorted or paged listing its own canonical.
  *
- * The ordering lives in the URL (`?sort=price-asc`) and is applied here rather than in the browser,
- * so a sorted shop is a shareable link, the back button returns to the previous order, and the
- * served HTML is already sorted for a visitor without JavaScript.
+ * Every page of the shop used to be able to claim it was `/shop`, which tells a crawler that pages 2
+ * to 33 are duplicates of page 1 and hides the rest of the catalogue. The ordering and the page
+ * number are both part of the address, so both are part of the canonical — `listingHref` builds it,
+ * the same function the pager's links come from.
  *
- * @param props.searchParams The requested ordering; anything unrecognised falls back to name.
+ * @param props.searchParams The requested ordering and page, so the canonical names them.
+ */
+export async function generateMetadata({ searchParams }: ShopPageProps): Promise<Metadata> {
+  const { sort: requestedSort, page: requestedPage } = await searchParams;
+  const sort = parseSort(requestedSort);
+  const value = Number(Array.isArray(requestedPage) ? requestedPage[0] : requestedPage);
+  const page = Number.isInteger(value) && value > 1 ? value : 1;
+
+  return {
+    title: "Shop",
+    description: "Every device, liquid and pod in the Vapestack catalogue.",
+    alternates: { canonical: listingHref("/shop", sort, page) },
+  };
+}
+
+/**
+ * The whole catalogue, nine products at a time.
+ *
+ * The ordering and the page both live in the URL (`?sort=price-asc&page=3`) and are applied here
+ * rather than in the browser, so a sorted, paged shop is a shareable link, the back button returns
+ * to the previous view, and the served HTML is already the page a visitor without JavaScript asked
+ * for. A page that does not exist is a 404, not a quiet first page.
+ *
+ * @param props.searchParams The requested ordering and page; anything unrecognised falls back.
  */
 export default async function ShopPage({ searchParams }: ShopPageProps) {
-  const { sort: requested } = await searchParams;
-  const sort = parseSort(requested);
+  const { sort: requestedSort, page: requestedPage } = await searchParams;
+  const sort = parseSort(requestedSort);
   const catalogue = await getCatalogue();
 
   if (!catalogue) {
@@ -34,12 +55,18 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   }
 
   const { categories, products } = catalogue;
+  const ordered = sortProducts(products, sort);
+  const page = parsePage(requestedPage, ordered.length);
+
+  if (null === page) {
+    notFound();
+  }
 
   return (
     <Container className="py-10">
       <h1 className="text-3xl font-semibold text-ink-50 sm:text-4xl">Shop</h1>
       <p className="mt-2 max-w-2xl text-ink-200">
-        The whole catalogue, read live from WooCommerce over GraphQL.
+        The whole catalogue, read live from WooCommerce over GraphQL — {PAGE_SIZE} at a time.
       </p>
 
       <div className="mt-8">
@@ -47,7 +74,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       </div>
 
       <div className="mt-10">
-        <ProductGrid products={sortProducts(products, sort)} sort={sort} />
+        <ProductGrid paged={paginate(ordered, page)} sort={sort} basePath="/shop" />
       </div>
     </Container>
   );

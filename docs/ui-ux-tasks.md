@@ -97,6 +97,8 @@ believing it, and measure where content actually ends before drawing a conclusio
 | T15 | End-to-end verification sweep | not started | T1–T14 |
 | T16 | Header ranges, regrouped | done | T2, T3 |
 | T17 | The home hero, after the catalogue grew | done | T2, T11, T16 |
+| T18 | Listings are paged, nine at a time | done | T8 |
+| T19 | The footer groups its ranges too | done | T3, T16 |
 
 Keep this table in step with the checkboxes: when a task is ticked, change its row here too.
 
@@ -1508,3 +1510,93 @@ page, the range cards, and the mobile panel.
 > every honest cap needs a heading that no longer describes the section. If the phone page is still
 > too long, the lever is the nine range cards, not the product grid — say the word and it is a
 > separate task.
+
+## T18 — Listings are paged, nine at a time — `[x]` done
+
+**Goal** — `/shop` no longer renders 290 cards in one 50,000px column. Both listings show **nine
+products a page** (three rows of the three-up grid), the page lives in the URL next to the sort, and a
+page that does not exist is a 404 rather than a quiet first page.
+
+**Context to load** — `frontend/src/lib/pagination.ts` (new), `frontend/src/lib/product-sort.ts`,
+`components/product/product-grid.tsx`, `components/product/pagination.tsx` (new),
+`app/shop/page.tsx`, `app/shop/[category]/page.tsx`.
+
+**In scope** — the two listings. **Out of scope** — the home page's "One from each range", the
+sitemap (which lists products, not listing pages), and any change to what WordPress is asked for.
+
+**Acceptance criteria**
+
+1. `/shop` and every `/shop/<range>` show nine products, and the count line says which slice it is.
+2. The pager is made of links: it works without JavaScript, the back button returns to the page you
+   were on, and paging never drops the ordering.
+3. An out-of-range or malformed `?page=` is a 404.
+4. Each page canonicals itself, including the ordering.
+
+**Verify** — driven in a real Chromium (click, keyboard), read out of the served HTML for the no-JS
+path, plus `build`/`tsc`/`lint`.
+
+**Size** — M
+
+> verified: **the slicing is a slice, not a query.** `products` is still read once, unpaged, and the
+> listing pages slice it — so `/shop?page=33` and `/shop/disposable-vape?page=5` cost exactly what
+> page 1 costs, and an impossible page needs no request to refuse. `lib/pagination.ts` is pure and
+> framework-free like `lib/product-sort.ts`; `ProductGrid` now takes the whole `Paged` object rather
+> than a product array, so the count line, the cards and the pager cannot disagree about the slice.
+
+> verified: `/shop` → **9 cards, "1–9 of 290 products"**, pager `← Previous(disabled) 1(current) 2 …
+> 33 Next →`; `?page=2` → 9 cards, "10–18", different products, `← Previous → /shop` (page 1 omits
+> the parameter); **`?page=33` → 2 cards, "289–290 of 290"**; `/shop/disposable-vape` → 9 of 40 with
+> 5 pages, `?page=5` → 4 cards, `?page=6` → **404**; `/shop/e-liquids` (one product) renders **no
+> pager at all**. `?page=0`, `?page=34` and `?page=abc` are all **404** — an address that names page
+> 99 and shows page 1 is a lie, the same judgement the empty-range 404 makes.
+
+> verified: **the ordering survives paging and the canonical names both.** On
+> `?sort=price-desc&page=3`: "19–27 of 290", and every pager link carries `sort=price-desc`
+> (`← Previous → /shop?sort=price-desc&page=2`, page 1 → `/shop?sort=price-desc`). The first attempt
+> canonicalised to `/shop?page=3` — **dropping `sort`**, which would tell a crawler a sorted listing
+> is the unsorted one; `listingHref()` now owns that address for the pager, the canonical and the
+> links alike, and the canonical reads `/shop?sort=price-desc&page=3`.
+
+> verified: **it is a pager, not a script.** The served HTML of `/shop?sort=price-asc&page=2`
+> contains ordinary anchors (`→ /shop?sort=price-asc&page=3`), clicked and keyboard-driven in a real
+> browser (focus `Page 2` → Enter → `?page=2`, then `Page 3` → `?page=3`). Overflow is **0** with the
+> pager on screen at 1440, 768, 390 and 320, where it wraps from one row (38px) to three (130px)
+> rather than overflowing.
+
+> verified: `npm run build` clean, `npx tsc --noEmit` clean, `npm run lint` clean. Screenshots:
+> `/tmp/ui/grow/shop-page7-{1440,390}.png`.
+
+## T19 — The footer groups its ranges too — `[x]` done
+
+**Goal** — The footer's shop column stops being a wall of ten links: the hardware ranges sit behind
+one `Vape` trigger, the same grouping the header uses.
+
+**Context to load** — `frontend/src/components/layout/footer.tsx`, `footer-range-group.tsx` (new),
+`nav-links.tsx`, `lib/nav.ts` (new), `lib/use-disclosure.ts` (new).
+
+**In scope** — the footer's shop column. **Out of scope** — the mobile panel, which stays flat.
+
+**Acceptance criteria**
+
+1. The footer column reads `Shop all`, the four ungrouped ranges, then `Vape`, which expands to the
+   five hardware ranges.
+2. The group opens on click, closes on Escape with focus back on the trigger, and closes when one of
+   its links is followed.
+3. The grouping rule and the behaviour live in one place each, shared with the header.
+
+**Verify** — driven in a real Chromium at four widths, with the group open and closed.
+
+**Size** — S
+
+> verified: the column now reads **Shop all, Disposable Vape, E-Liquids, Nicotine Pouches, Pod
+> Cartridge, Vape** — six rows where there were ten — and `Vape` expands **in place** (a nested list
+> with a left rule) to `Vape Accessories, Vape Coils, Vape Kit, Vape Mod, Vape Tanks`. Measured
+> closed → `aria-expanded="false"` with the panel `hidden` and its five links out of the tab order;
+> click → `aria-expanded="true"` and displayed; **Escape → closed with focus back on `Vape`**;
+> following `Vape Coils` → `/shop/vape-coils` with the group closed.
+
+> verified: **one rule, one behaviour, two surfaces.** The name-matching rule moved to `lib/nav.ts`
+> and the open/close behaviour (Escape, the focus return, the outside press) to
+> `lib/use-disclosure.ts`; `NavLinks` and `FooterRangeGroup` are now presentational, and the header
+> was re-measured after the refactor at 0 overflow. Overflow is also **0** at 1440, 768, 390 and 320
+> with the footer group open. Screenshot: `/tmp/ui/grow/footer-vape-open-1440.png`.
