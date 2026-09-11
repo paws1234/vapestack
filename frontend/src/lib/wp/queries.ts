@@ -92,11 +92,22 @@ const PRODUCT_FIELDS = `
   }
 `;
 
-/** Every product, in one page. The app sorts what it needs. */
+/**
+ * Every product, one page at a time. The app sorts what it needs.
+ *
+ * Paginated because WordPress caps a connection at 100 nodes: `first: 200` does not fail, it
+ * quietly answers with 100. The catalogue is read whole (the ranges, the search index and the
+ * shop are all derived from it), so a truncated read is not a partial shop but a wrong one — the
+ * ranges would come from whichever hundred arrived, and every product page past them would 404.
+ */
 export const CATALOGUE_QUERY = `
   ${PRODUCT_FIELDS}
-  query Catalogue($first: Int = 50) {
-    products(first: $first) {
+  query Catalogue($first: Int = 100, $after: String) {
+    products(first: $first, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         ...ProductFields
       }

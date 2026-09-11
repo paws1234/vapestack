@@ -18,6 +18,8 @@ than a claim.
 | T8 | The record: README, contract, memory | S | T7 |
 | T9 | The seeded images are unique per product too | M | T2 |
 | T10 | The catalogue is entirely imported; the seeded six retire | M | T9 |
+| T11 | The catalogue grows to a shop-sized list per range | M | T10 |
+| T12 | Four more ranges, a wider spec list, and a header that has to hold nine of them | M | T11 |
 
 **Parallelism.** T3 and T6 can run alongside T1/T2. T4 needs T3. T5 and T7 need T2. T9 touches
 `seed-products.php` and the storefront's committed images, so it runs after T5.
@@ -297,3 +299,146 @@ devices.
 > `publicUrl.ts` no longer short-circuits to a local file, and `tsc` and `lint` are clean. The seeder
 > stays in the repository, documented as the retired demo catalogue and the only thing that exercises
 > the variation half of the contract.
+
+## T11 — The catalogue grows to a shop-sized list per range
+
+**What it does.** Raises the fetcher's per-category limits to 40 so each range holds a real listing
+rather than a sample (E-Liquids is the exception: its source publishes eleven products and only one
+with a specification), re-imports, and paginates the frontend's catalogue read, because a GraphQL
+connection does not answer more than 100 nodes however large `first` is. Driven by the owner's
+"add more products, at least 20-50 on each option".
+
+**May touch.** `tools/fetch-source-products.mjs`,
+`wp-content/themes/vapestack-theme/tools/data/source-products.json`,
+`frontend/src/lib/wp/queries.ts`, `frontend/src/lib/wp/catalog.ts`, `docs/headless-contract.md`,
+`README.md`.
+
+**What proves it.**
+
+> verified: the fixture went from **17 to 161** entries — `disposable-vape` 40, `vape-kit` 40,
+> `pod-cartridge` 40, `vape-mod` 40, `e-liquids` 1 — with **`dropped: none`** against a copy of the
+> previous fixture: every product already in the shop kept its source id, and with it its SKU, its
+> generated price and the photograph already in the media library. The four new limits are 40 rather
+> than "as many as possible" because `spreadByBrand()` only ever appends when a limit rises.
+
+> verified: the fetcher reads all five categories **from its cache** (no network), and reports
+> `40 kept, 1 skipped, 100 listed` for disposables, `40 kept, 0 skipped` for kits, `40 kept, 14
+> skipped` for pod cartridges, `40 kept, 13 skipped` for mods and `1 kept, 10 skipped, 11 listed` for
+> e-liquids. 161 entries, every one with specs, one image URL each, all on `vapeobservation.com`.
+
+> verified: import without `reset` → **`144 created, 17 skipped`, 0 warnings**, so no photograph fell
+> back to generated art. An audit script (`wp eval-file`) then read: **161 published products, 161
+> imported, 0 not imported, 0 without an image, 161 distinct image files, 0 shared, 0 variations**,
+> and the media library holds 162 attachments — the 161 photographs plus WooCommerce's own
+> `woocommerce-placeholder.webp`, which no product uses. All **161** image URLs answer 200 from the
+> host (141 jpg, 18 webp, 2 png).
+
+> verified: **the frontend read was capped and had to be paginated.** The catalogue query asked for
+> `first: 50`; with 161 products that meant 111 product pages would have 404'd, because
+> `getProductBySlug()` resolves from the catalogue. Probed the endpoint directly: `first: 200`
+> **does not error, it answers 100**, so the read now follows `pageInfo.endCursor` — `100 + 61 = 161`
+> nodes, **0** overlap between the pages, `hasNextPage` false at the end. Recorded as rule 13 in
+> `docs/headless-contract.md`. `catalog.ts` needed an explicit type annotation on the page result:
+> `tsc` reported `TS7022: 'page' implicitly has type 'any' because it does not have a type
+> annotation and is referenced directly or indirectly in its own initializer` once the cursor it is
+> asked for came from the previous page.
+
+> verified: `npm run build` clean from a wiped `.next` (Next 16.3.4, 17 routes), `npx tsc --noEmit`
+> clean, `npm run lint` clean; served with `next start -p 3001`.
+
+> verified: measured in a real Chromium at three widths — `/shop` reports **161 cards, 161 images, 0
+> broken, 1 `h1`**, and **overflow 0** at 1440 and 390 and 45 at 768. The 768px overflow is the
+> **pre-existing** header/cart-drawer bug and not this work's: `/about`, which reads no catalogue at
+> all, measures the identical 45px, with the same two offenders (the header's `flex items-center
+> gap-3` group ending at x=813, and the always-mounted cart drawer at 768..1216).
+>
+> verified: the per-range counts render as **40 / 40 / 40 / 40 / 1** at `/shop/disposable-vape`,
+> `/shop/vape-kit`, `/shop/pod-cartridge`, `/shop/vape-mod` and `/shop/e-liquids`, `/sitemap.xml`
+> lists **173** urls (161 products plus 12 routes), and scrolling the whole 28,199px shop decoded
+> **161 of 161** images with **0** broken.
+>
+> verified: screenshots at `/tmp/ui/grow/` — `{shop}-{1440,768,390}.png`, `shop-scrolled-1440.png`,
+> `vape-kit-1440.png` — with `file` confirming 1440x900, 768x1024 and 390x844.
+
+> **Not addressed, pre-existing:** the 768px overflow above, and the fact that E-Liquids holds one
+> product because that is all its source publishes. Both are recorded rather than papered over.
+
+## T12 — Four more ranges, a wider spec list, and a header that has to hold nine of them
+
+**What it does.** Adds the source's remaining hardware ranges — `vape-tanks`, `vape-coils`,
+`vape-accessories` and `nicotine-pouches` — at 40 products each where the source has them, taking the
+catalogue to **290 products across nine ranges**. Then repairs the two things that made those ranges
+second-rate: the spec whitelist, which was throwing away the fact a coil *is* (`Coil Resistance` is a
+different label on the source from `Resistance`), and the header, which cannot hold ten nav links
+below 1280px. Driven by the owner's "add those different products".
+
+**May touch.** `tools/fetch-source-products.mjs`,
+`wp-content/themes/vapestack-theme/tools/data/source-products.json`,
+`frontend/src/components/layout/{header,nav-links,mobile-nav,mobile-nav-button}.tsx`,
+`docs/headless-contract.md`, `README.md`, `frontend/UI-STANDARDS.md`.
+
+**What proves it.**
+
+> verified: the new ranges landed at **40 kept, 8 skipped** (tanks), **40/21** (coils), **40/0**
+> (accessories) and **9/3** (pouches, which the source only has twelve of). The fixture went from
+> **161 to 290** entries with **`dropped: none`**: every product already in the shop kept its source
+> id.
+
+> verified: **the whitelist was dropping real facts, and the measurement is what showed it.** 79 of
+> the first 129 new entries carried a **single** spec, and for coils and pouches that spec was
+> `Device Type = Coil` / `= Nicotine Pouches` — the range restated as a fact. Across all nine cached
+> categories the five labels added (`Coil Resistance`, `Wattage`, `Material`, `Dimensions`, `Weight`)
+> account for **401** distinct values (`0.1-3.0ohm`, `5-100W`, `97.6mm by 38mm by 30mm`). A stricter
+> rule was written and **rejected on its own numbers**: dropping values that start lowercase would
+> have removed real ones (`built-in 2500mAh battery`, `about 4-5mL`), so the remaining
+> **15 of 401 (3.7%)** prose fragments are tolerated, as the longer-standing labels already do.
+
+> verified: the wider rule changed **90 of the 161** products already in the shop, so a fixture that
+> described them and a database that did not would have been a lie. The 90 were deleted by a
+> throwaway script that compared each product's attributes with the fixture, **leaving their
+> attachments in the media library** — `image_for()` finds a photograph by `_vapestack_source_image`,
+> so the comparison before and after shows **162 attachments before, 291 after** (290 photographs
+> plus WooCommerce's owner placeholder) and no duplicates: the 90 were rebuilt with **no
+> re-download**.
+
+> verified: `219 created, 71 skipped`, **0 warnings**, 150s. Audit: **290 published, 290 imported,
+> 0 without an image, 290 distinct image files, 0 shared, 869 spec rows**, all nine ranges at
+> 40/40/40/40/40/40/40/9/1. Every one of the **290** image URLs answers 200 from the host
+> (267 jpg, 20 webp, 3 png).
+
+> verified: **the fixture and the database now agree exactly** — comparing every imported product's
+> attributes with its fixture entry: **290 ids, 0 differences**.
+
+> verified: the rendered pages carry the new facts — `advken-dc-series-coil` shows
+> `Device Type=Coil | Coil Resistance=0.2Ω`, `advken-artha-gen-2-rda-atomizer` shows
+> `Device Type=RDA | Capacity=1.5mL | Material=304 Stainless steel&Resin | Dimensions=20 * 32.9mm`.
+
+> verified: a product from a new range is **buyable**: `POST /api/checkout` for
+> `productId: 811` (SKU `VO-30348`, ADVKEN DC Series Coil) × 2 answered
+> `{"id":1042,"number":"1042"}`, and WooCommerce holds it as `processing`, **29.98 USD**
+> (`ADVKEN DC Series Coil x2 @ 29.98`), i.e. 14.99 each inside the 899–1999 band the fixture gives
+> that range. Orders went 20 → 21.
+
+> verified: **the header had to move.** With ten nav links (Shop plus nine ranges) measured in a real
+> Chromium: the nav needs **703px**, and beside the wordmark and the controls that overflows by
+> **353px at 768** and **97px at 1024**, fitting from 1280. `NavLinks` is now `xl:flex` and the menu
+> panel is `xl:hidden` with its resize guard moved to `(min-width: 1280px)`. Overflow after the
+> change: **0** at 390, 768, 1024, 1280, 1440 and 1600 — which also clears the **45px** that the old
+> five-range header leaked at exactly 768 (T11's note above).
+
+> verified: **a documented a11y behaviour had been lost and is now restored.** `docs/ui-ux-tasks.md`
+> records that T1 moved the header's inline nav into `NavLinks` so the current range carries
+> `aria-current="page"`; the header on disk had an inline copy again, with no `aria-current` and no
+> active colour. `Header` renders `NavLinks` once more, and the shop page shows "Shop" in `neon-400`
+> with the attribute while the other nine do not.
+
+> verified: `npm run build` clean from a wiped `.next`, `npx tsc --noEmit` clean, `npm run lint`
+> clean; `/shop` serves **290 cards, 290 images, 1 h1, 10 chips** and `/shop/vape-coils` 40, at 1440,
+> 768 and 390. Scrolling the whole 50,279px shop decoded **290 of 290** images, 0 broken. The menu
+> panel at 1024 lists all nine ranges plus Shop and "Shop all". Screenshots in `/tmp/ui/grow/`:
+> `shop-{1440,768,390}.png`, `vape-coils-1440.png`, `menu-1024.png`.
+
+> **Not addressed:** the E-Liquids range still holds one product and Nicotine Pouches nine — that is
+> the source's inventory, not a limit chosen here. And some spec values are the source's own prose
+> fragments (15 of 401 measured above); they are left as published rather than filtered by a rule
+> that would also discard good values.

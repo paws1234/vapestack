@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Fetches a small, reviewed set of product *facts* from a public WooCommerce Store API.
+ * Fetches a reviewed set of product *facts* from a public WooCommerce Store API.
  *
  * The vapestack catalogue is seeded from `seed-products.php`. This script is the other way in: it
  * reads the Open Store API of an existing vape shop (read-only, no authentication, allowed by its
- * robots.txt), takes a handful of products, and writes them to a JSON fixture that
+ * robots.txt), takes a shop-sized list of products per range, and writes them to a JSON fixture that
  * `import-source-products.php` turns into WooCommerce products.
  *
  * Two deliberate limits, both about what this script is *allowed* to produce:
@@ -22,8 +22,8 @@
  * apart, with an identifying User-Agent, and every response cached under `tools/.cache/` so a re-run
  * needs no network at all.
  *
- *   node tools/fetch-source-products.mjs                  # the three configured categories
- *   node tools/fetch-source-products.mjs --limit 6        # six products per category
+ *   node tools/fetch-source-products.mjs                  # the configured categories
+ *   node tools/fetch-source-products.mjs --limit 12       # twelve products per category
  *   node tools/fetch-source-products.mjs --ids 35470,33225
  *   node tools/fetch-source-products.mjs --force          # overwrite an existing fixture
  *
@@ -71,19 +71,54 @@ const DELAY_MS = 1500;
  * decision about the catalogue rather than about WooCommerce. Minor units, to match the Store API.
  */
 const CATEGORIES = [
-  { slug: "disposable-vape", name: "Disposable Vape", band: [999, 1499] },
-  { slug: "vape-kit", name: "Vape Kit", band: [2499, 3999] },
-  { slug: "e-liquids", name: "E-Liquids", band: [1299, 1999] },
+    { slug: "disposable-vape", name: "Disposable Vape", band: [999, 1499], limit: 40 },
+    { slug: "vape-kit", name: "Vape Kit", band: [2499, 3999], limit: 40 },
   /*
-   * Added when the catalogue became entirely real products: three more from each of two more
-   * ranges. The limit is per category so the eleven products already in the shop keep their source
-   * ids, and therefore their images, their prices and their SKUs.
+   * The source carries only eleven e-liquids in total and exactly one of them publishes any
+   * specification, so this range cannot reach the size of the others. The limit is a ceiling rather
+   * than a choice: asking for more than the source has simply keeps everything usable.
    */
-  { slug: "pod-cartridge", name: "Pod Cartridge", band: [699, 1199], limit: 3 },
-  { slug: "vape-mod", name: "Vape Mod", band: [3499, 5999], limit: 3 },
+    { slug: "e-liquids", name: "E-Liquids", band: [1299, 1999], limit: 11 },
+    { slug: "pod-cartridge", name: "Pod Cartridge", band: [699, 1199], limit: 40 },
+    { slug: "vape-mod", name: "Vape Mod", band: [3499, 5999], limit: 40 },
+  /*
+   * The rest of the source's hardware ranges. The bands differ by what the thing is rather than by
+   * its source category: a tank is a device, a pack of coils is a consumable, and accessories run
+   * from a case to a battery, so that one band is the widest in the fixture.
+   */
+    { slug: "vape-tanks", name: "Vape Tanks", band: [1999, 3999], limit: 40 },
+    { slug: "vape-coils", name: "Vape Coils", band: [899, 1999], limit: 40 },
+    { slug: "vape-accessories", name: "Vape Accessories", band: [599, 3499], limit: 40 },
+  /* Twelve in total on the source, so like e-liquids this limit is a ceiling rather than a choice. */
+    { slug: "nicotine-pouches", name: "Nicotine Pouches", band: [499, 999], limit: 12 },
 ];
 
-/** Only these spec labels are kept, in this order, so a fixture reads the same every time. */
+/*
+ * Why a limit per category rather than one number for the run: `spreadByBrand()` walks the brands in
+ * name order and takes one product from each before any brand gets a second, so **raising** a limit
+ * appends to what that category already contributed and never reshuffles it. That is what lets the
+ * catalogue grow in place: the products already in the shop keep their source ids, and with them
+ * their SKUs, their generated prices and the photographs already sitting in the media library.
+ *
+ * The source holds far more than these limits ask for (disposable-vape 787, vape-kit 1228,
+ * pod-cartridge 348, vape-mod 130), so the size of the shop is a decision rather than a shortage.
+ */
+
+/**
+ * Only these spec labels are kept, in this order, so a fixture reads the same every time.
+ *
+ * The order is a priority as well as a display order: `MAX_SPECS` keeps the first six, so the facts
+ * that describe what the thing *is* come before the ones that describe how it measures.
+ *
+ * The last five were added when the coil, tank and accessory ranges arrived, and they are what those
+ * ranges have to say: a coil's headline fact is its resistance, and `Coil Resistance` is a separate
+ * label on the source from `Resistance`. Measured against all nine cached categories, they add **401**
+ * distinct values to the products that carry them — `0.1-3.0ohm`, `5-100W`, `97.6mm by 38mm by 30mm`
+ * — of which **15 (3.7%)** are prose fragments of the same kind the longer-standing labels already
+ * let through ("Range: 5-100W Voltage Range: 1"). `MAX_SPEC_LENGTH` is what keeps those rare; a
+ * stricter rule was tried and rejected, because values that start with a lowercase letter are
+ * usually real (`built-in 2500mAh battery`, `about 4-5mL`).
+ */
 const SPEC_LABELS = [
   "Device Type",
   "Puff Count",
@@ -97,6 +132,11 @@ const SPEC_LABELS = [
   "Nicotine Strength",
   "Power Output",
   "Resistance",
+  "Coil Resistance",
+  "Wattage",
+  "Material",
+  "Dimensions",
+  "Weight",
 ];
 
 /** Longest a single spec value may be before it is dropped as boilerplate rather than a value. */
@@ -105,7 +145,12 @@ const MAX_SPEC_LENGTH = 40;
 /** How many spec lines one product may contribute. */
 const MAX_SPECS = 6;
 
-/** How many products to take from each category. */
+/**
+ * How many products to take from a category that sets no `limit` of its own.
+ *
+ * Every configured category carries one, so this is the fallback for a bare run rather than the
+ * size of the catalogue.
+ */
 const DEFAULT_LIMIT = 5;
 
 const FIELDS = ["id", "name", "slug", "type", "categories", "attributes", "permalink", "images"].join(

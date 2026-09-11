@@ -10,10 +10,11 @@ off the shop serves its last cached catalogue, the product images still load, an
 plainly that no order was created.
 
 - **Backend** — WordPress with WooCommerce 11, WPGraphQL and GraphQL for eCommerce, running in
-  Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is **17 imported
-  products**: their names, factual specifications and photographs were read from a public product
-  listing, while their prices and stock are generated. The import is re-runnable, so demo stock and
-  demo prices are predictable.
+  Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is **290 imported
+  products across nine ranges** (40 per range, except `nicotine-pouches` at 9 and `e-liquids` at the
+  single product its source publishes): their names, factual specifications and photographs were
+  read from a public product listing, while their prices and stock are generated. The import is
+  re-runnable, so demo stock and demo prices are predictable.
 - **Storefront** — Next.js 16 (App Router), Tailwind v4 and Zustand in `frontend/`. Dark-neon
   design system, a 21+ age gate, a cart that survives a reload, and a mock checkout that creates a
   real `processing` WooCommerce order.
@@ -22,7 +23,7 @@ plainly that no order was created.
 
 | Route | What it is |
 | --- | --- |
-| `/` | Hero, the three ranges, one product from each, and one honest paragraph about what this shop is. |
+| `/` | Hero, every range with one product each, and one honest paragraph about what this shop is. |
 | `/shop`, `/shop/[category]` | The catalogue and one range. Sorting lives in the URL (`?sort=price-asc`), the sort control is a real `GET` form so it works without JavaScript, and the result count is announced. |
 | `/product/[slug]` | One product: breadcrumbs, live option selectors with per-combination stock, a quantity stepper, details and the shipping statement, the rest of its range, and `Product` + `BreadcrumbList` JSON-LD. |
 | `/checkout`, `/checkout/success/[id]` | The demo checkout and the receipt for the order it created. No payment is taken. |

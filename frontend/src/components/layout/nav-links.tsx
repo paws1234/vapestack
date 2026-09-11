@@ -29,13 +29,18 @@ function linkClasses(active: boolean): string {
  * `Header` stays a server component and keeps reading the catalogue, and this renders the links it
  * is handed. The mobile panel does the same thing for itself.
  *
+ * **Visible from `xl`, not `md`.** Measured with the nine ranges the catalogue now holds: ten links
+ * need 703px, and beside the wordmark and the header's controls that overflows by 353px at 768 and
+ * by 97px at 1024, fits from 1280. Below `xl` the menu panel is the way to a range, and it lists
+ * every one of them.
+ *
  * @param props.categories Ranges to list, empty when the catalogue could not be read.
  */
 export function NavLinks({ categories }: { categories: Category[] }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Categories" className="hidden items-center gap-6 text-sm md:flex">
+    <nav aria-label="Categories" className="hidden items-center gap-6 text-sm xl:flex">
       <Link
         href="/shop"
         aria-current={"/shop" === pathname ? "page" : undefined}

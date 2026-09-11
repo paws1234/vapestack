@@ -416,14 +416,23 @@ does not rescue the status — metadata streams too.
 | Width | Must be true |
 | --- | --- |
 | **390x844** — phone | Header is wordmark + menu + cart, and the menu reaches Shop, every range and "Shop all" in two taps or fewer. Footer stacks in one column. Cards 1-up. Page `h1` is `text-3xl`. No horizontal overflow. |
-| **768x1024** — tablet | The desktop nav is visible from `md`, so the header must hold the wordmark, Shop, three ranges, "Shop all" and the cart without wrapping. Cards 2-up. Footer may be 2-up. |
-| **1440x900** — desktop | Nav plus "Shop all", cards 3-up, container capped at `max-w-6xl`. |
+| **768x1024** — tablet | Header is wordmark, "Shop all", search, menu and cart; the **menu panel** reaches every range, because the inline nav starts at `xl` (see below). Cards 2-up. Footer may be 2-up. No horizontal overflow. |
+| **1024x1280** — small laptop | Same header as the tablet: the panel, not the inline nav. Cards 3-up. |
+| **1280x** and up — desktop | Inline nav, all nine ranges plus "Shop all", cards 3-up, container capped at `max-w-6xl`. |
+
+**Why the inline nav starts at `xl` and not `md`.** Measured on 2026-09-11 with the nine ranges the
+catalogue holds, the ten nav links need **703px**. Beside the wordmark and the header's controls that
+is **+353px** of overflow at 768 and **+97px** at 1024, and it fits from 1280 (0 at 1280, 1440 and
+1600). `NavLinks` is therefore `xl:flex` and `MobileNavButton` / the panel are `xl:hidden`; the
+panel's resize guard matches at `(min-width: 1280px)`. Before the range count grew, the same header
+overflowed by 45px at exactly 768 — with the nav out of the way that is **0** at 390, 768, 1024, 1280,
+1440 and 1600.
 
 Target size: a standalone target (a nav link, a button, a chip) needs **24x24 CSS px** (WCAG 2.5.8).
 Links inside a sentence are exempt; links in a nav are not. Measured today, the desktop nav links are
 20px tall without padding and 28px with `py-1`.
 
-Tailwind defaults in use: `sm` 640, `md` 768, `lg` 1024.
+Tailwind defaults in use: `sm` 640, `md` 768, `lg` 1024, `xl` 1280.
 
 ## Tailwind v4 traps this project has already paid for
 

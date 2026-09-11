@@ -19,7 +19,7 @@ function linkClasses(active: boolean): string {
 }
 
 /**
- * The storefront's navigation below `md`, as a slide-over panel.
+ * The storefront's navigation below `xl`, as a slide-over panel.
  *
  * Mounted by the root layout rather than by the header, and it has to be: `<header>` is
  * `backdrop-blur`, and a `backdrop-filter` makes that element the containing block for any
@@ -44,12 +44,14 @@ export function MobileNav({ categories }: { categories: Category[] }) {
   useModalBehaviour({ open: isOpen, panelRef, onEscape: close });
 
   /*
-    The panel is `md:hidden`, but `useModalBehaviour` locks the page scroll while it is open. A
-    visitor who opens the menu on a phone and then rotates or widens past `md` would be left with a
-    hidden panel and a page that will not scroll, so crossing the breakpoint closes it.
+    The panel is `xl:hidden`, but `useModalBehaviour` locks the page scroll while it is open. A
+    visitor who opens the menu on a phone and then rotates or widens past the breakpoint would be
+    left with a hidden panel and a page that will not scroll, so crossing it closes the panel.
+
+    The number has to match the class on the panel: it is where `NavLinks` appears, not 768.
   */
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 768px)");
+    const desktop = window.matchMedia("(min-width: 1280px)");
     const onChange = () => {
       if (desktop.matches) {
         useNavStore.getState().close();
@@ -63,7 +65,7 @@ export function MobileNav({ categories }: { categories: Category[] }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 md:hidden ${isOpen ? "" : "pointer-events-none"}`}
+      className={`fixed inset-0 z-50 xl:hidden ${isOpen ? "" : "pointer-events-none"}`}
       aria-hidden={!isOpen}
     >
       <div

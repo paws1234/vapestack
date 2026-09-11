@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { MobileNavButton } from "@/components/layout/mobile-nav-button";
+import { NavLinks } from "@/components/layout/nav-links";
 import { SearchButton } from "@/components/search/search-button";
 import { buttonStyles } from "@/components/ui/button";
 import type { Category } from "@/lib/wp/types";
@@ -17,24 +18,16 @@ export function Header({ categories }: { categories: Category[] }) {
           VAPESTACK
         </Link>
 
-        <nav aria-label="Categories" className="hidden items-center gap-6 text-sm md:flex">
-          <Link href="/shop" className="text-ink-200 transition hover:text-neon-400">
-            Shop
-          </Link>
-          {categories.map((category) => (
-            <Link
-              key={category.slug}
-              href={`/shop/${category.slug}`}
-              className="text-ink-200 transition hover:text-neon-400"
-            >
-              {category.name}
-            </Link>
-          ))}
-        </nav>
+        {/*
+          The ranges are the nav's business, not the header's: `NavLinks` owns the breakpoint and the
+          active-range marking, and reads the current path as a client component so this one can stay
+          a server component.
+        */}
+        <NavLinks categories={categories} />
 
         {/*
-          At mobile widths the nav is hidden and the header is tight, so the wordmark and the
-          cart are what is left; "Shop all" is a desktop convenience the categories also cover.
+          Below `xl` the inline nav is hidden and the header is tight, so the wordmark and the
+          cart are what is left; "Shop all" is a desktop convenience the menu panel also covers.
 
           `max-md:hidden` rather than `hidden md:inline-flex`: Tailwind v4 emits `.inline-flex`
           after `.hidden`, so the unprefixed `hidden` loses to the display utility `buttonStyles`

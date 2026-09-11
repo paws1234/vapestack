@@ -22,9 +22,12 @@ function MenuIcon() {
 }
 
 /**
- * The header's menu trigger, below `md` only.
+ * The header's menu trigger, below `xl` only.
  *
- * `md:hidden` rather than `hidden`: Tailwind v4 emits `.hidden` before the display utilities, so an
+ * The breakpoint matches the one `NavLinks` appears at: with nine ranges the inline nav does not fit
+ * until 1280, so below that the panel is what holds them.
+ *
+ * `xl:hidden` rather than `hidden`: Tailwind v4 emits `.hidden` before the display utilities, so an
  * unprefixed `hidden` loses to whichever one is emitted later. Variants are emitted after the base
  * utilities, so a variant is the reliable way to hide something. See `frontend/UI-STANDARDS.md`.
  *
@@ -46,7 +49,7 @@ export function MobileNavButton() {
       aria-expanded={isOpen}
       aria-controls="mobile-nav"
       className={[
-        "md:hidden",
+        "xl:hidden",
         "inline-flex size-9 items-center justify-center rounded-full",
         "border border-line text-ink-50 transition hover:border-neon-400 hover:text-neon-400",
       ].join(" ")}
