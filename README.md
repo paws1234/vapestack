@@ -89,8 +89,17 @@ rather than by hand.
 ```bash
 npx --yes vercel login                                   # once
 env -C . npx --yes vercel link --project vapestack        # once, from the repository root
+npx --yes vercel env add NEXT_PUBLIC_SITE_URL production \
+  --value https://vapestack-paws1234s-projects.vercel.app --no-sensitive --yes   # once
 bash tools/tunnel.sh                                      # tunnel up, environment re-pointed, deployed
 ```
+
+`NEXT_PUBLIC_SITE_URL` is the storefront's own origin, and it is the one variable `tools/tunnel.sh`
+does not set. It is a `NEXT_PUBLIC_` variable, so Next inlines it at build time and it has to be in
+place **before** a build — setting it afterwards only affects the next deployment. Unset, it falls
+back to `http://localhost:3000`, which is right for `next dev` and wrong for everything else: the
+canonical link on every page, `/robots.txt` and all 306 entries in `/sitemap.xml` would name the
+author's laptop.
 
 Deploys run from the repository root rather than from `frontend/`. The project's Root Directory is
 `frontend`, so the CLI has to upload the repository and let that setting pick the storefront out of
