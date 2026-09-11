@@ -4,6 +4,11 @@ A headless vape storefront: WordPress and WooCommerce as the commerce backend, a
 the storefront. Everything here is a demo — no payment is ever taken, no email is sent and nothing
 ships.
 
+**Live demo:** <https://vapestack-paws1234s-projects.vercel.app> — the storefront runs on Vercel,
+and the WordPress it reads from runs on a development machine behind a tunnel. When that machine is
+off the shop serves its last cached catalogue, the product images still load, and checkout says
+plainly that no order was created.
+
 - **Backend** — WordPress with WooCommerce 11, WPGraphQL and GraphQL for eCommerce, running in
   Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is six products with 20
   variations, seeded by a re-runnable script, so demo stock is predictable.
@@ -55,6 +60,16 @@ WordPress is exposed with a **cloudflared quick tunnel**, which gets a new rando
 `*.trycloudflare.com` hostname every time it restarts. `tools/tunnel.sh` starts it, reads the
 hostname and re-points the Vercel environment, so the changing host is handled in one command
 rather than by hand.
+
+```bash
+npx --yes vercel login                                   # once
+env -C . npx --yes vercel link --project vapestack        # once, from the repository root
+bash tools/tunnel.sh                                      # tunnel up, environment re-pointed, deployed
+```
+
+Deploys run from the repository root rather than from `frontend/`. The project's Root Directory is
+`frontend`, so the CLI has to upload the repository and let that setting pick the storefront out of
+it; running `vercel` inside `frontend/` uploads that directory as the root and fails to find it.
 
 ## More
 

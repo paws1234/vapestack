@@ -20,6 +20,11 @@ wp-content/debug.log
 # regenerated on every start, so it is never committed.
 .tunnel/
 
+# The Vercel CLI's link to this project, and the OIDC token it writes next to it when it links.
+# Machine-specific; the project is identified by the repository it is built from.
+.vercel/
+.env.local
+
 # The storefront is a real app built in place, so keep its dependencies and build output out of
 # version control. frontend/.gitignore covers the same ground for its own directory.
 frontend/node_modules/
@@ -30,3 +35,5 @@ frontend/.env*
 
 .DS_Store
 Thumbs.db
+.vercel
+.env*

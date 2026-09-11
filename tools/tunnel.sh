@@ -16,13 +16,17 @@
 #
 # Needs:
 #   - cloudflared, no account required for a quick tunnel
-#   - the Vercel CLI, authenticated (`npx vercel login`) and linked to the project
-#     (`npx vercel link` inside frontend/), for everything except --host and --stop
+#   - the Vercel CLI, authenticated (`npx vercel login`) and linked to the project from the
+#     **repository root** (`npx vercel link` there, not in frontend/), for --host and --stop
+#     excluded
+#
+# Deploys run from the repository root on purpose: the project's Root Directory is `frontend`, so
+# the CLI has to upload the repository and let the setting pick the storefront out of it. Running
+# `vercel` inside frontend/ uploads that directory as the root and fails to find it.
 
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FRONTEND_DIR="$PROJECT_DIR/frontend"
 RUN_DIR="${TUNNEL_RUN_DIR:-$PROJECT_DIR/.tunnel}"
 LOG="$RUN_DIR/cloudflared.log"
 PID_FILE="$RUN_DIR/cloudflared.pid"
@@ -114,24 +118,59 @@ esac
 start_tunnel
 HOST="$(cat "$HOST_FILE")"
 
-# A quick tunnel can be up before WordPress is behind it, so check both ends before spending a
-# deployment on it. WordPress answers /wp-json/ with 200 and without authentication.
-status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$HOST/wp-json/" || echo 000)"
+# A quick tunnel prints its hostname before that hostname resolves, and this machine's resolver
+# caches the negative answer hard enough to keep failing after Cloudflare has published the record.
+# So the probe waits a moment, retries, and can be pointed at DNS-over-HTTPS - which is also what
+# tells a genuine tunnel failure apart from a stale local resolver.
+#
+# WordPress answers /wp-json/ with 200 and without authentication, so that is the probe.
+probe_wordpress() {
+	local doh="$1"
+	local status=""
 
-if [ "200" != "$status" ]; then
-	echo "The tunnel is up at $HOST but WordPress answered $status there." >&2
-	echo "Start the site first: wpdev up $PROJECT_DIR" >&2
-	exit 1
+	for _ in $(seq 1 12); do
+		if [ -n "$doh" ]; then
+			status="$(curl -s --doh-url "$doh" -o /dev/null -w '%{http_code}' --max-time 15 "$HOST/wp-json/" || true)"
+		else
+			status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$HOST/wp-json/" || true)"
+		fi
+
+		if [ "200" = "$status" ]; then
+			echo "$status"
+
+			return 0
+		fi
+
+		sleep 5
+	done
+
+	echo "${status:-none}"
+
+	return 1
+}
+
+sleep 5
+wp_status="$(probe_wordpress "" || true)"
+
+if [ "200" != "$wp_status" ]; then
+	if wp_status="$(probe_wordpress "https://cloudflare-dns.com/dns-query")"; then
+		echo "Note: this machine's resolver does not resolve $HOST yet, but the tunnel answers over" >&2
+		echo "DNS-over-HTTPS, so WordPress is reachable and the deployment will be fine." >&2
+	else
+		echo "The tunnel at $HOST never reached WordPress (last answer: $wp_status)." >&2
+		echo "Stop it with: bash tools/tunnel.sh --stop, then check the site is up: wpdev up $PROJECT_DIR" >&2
+		exit 1
+	fi
 fi
 
 echo "Tunnel:     $HOST"
-echo "WordPress:  $status from $HOST/wp-json/"
+echo "WordPress:  $wp_status from $HOST/wp-json/"
 
-if [ ! -f "$FRONTEND_DIR/.vercel/project.json" ]; then
+if [ ! -f "$PROJECT_DIR/.vercel/project.json" ]; then
 	echo
-	echo "frontend/ is not linked to a Vercel project yet. Run:" >&2
-	echo "  env -C $FRONTEND_DIR npx vercel login" >&2
-	echo "  env -C $FRONTEND_DIR npx vercel link" >&2
+	echo "The repository root is not linked to a Vercel project yet. Run:" >&2
+	echo "  npx vercel login" >&2
+	echo "  env -C $PROJECT_DIR npx vercel link --project vapestack" >&2
 	exit 1
 fi
 
@@ -140,8 +179,8 @@ fi
 set_env() {
 	local name="$1" value="$2"
 
-	env -C "$FRONTEND_DIR" $VERCEL env rm "$name" production --yes >/dev/null 2>&1 || true
-	printf '%s' "$value" | env -C "$FRONTEND_DIR" $VERCEL env add "$name" production >/dev/null
+	env -C "$PROJECT_DIR" $VERCEL env rm "$name" production --yes >/dev/null 2>&1 || true
+	printf '%s' "$value" | env -C "$PROJECT_DIR" $VERCEL env add "$name" production >/dev/null
 }
 
 echo "Re-pointing the Vercel production environment at $HOST ..."
@@ -150,9 +189,32 @@ set_env WP_GRAPHQL_URL "$HOST/graphql"
 set_env WP_REST_URL "$HOST/wp-json/wc/v3"
 set_env WP_PUBLIC_URL "$HOST"
 
-echo "Deploying ..."
+echo "Deploying (from the repository root, because the project's Root Directory is frontend) ..."
 
-env -C "$FRONTEND_DIR" $VERCEL --prod --yes
+deploy_output="$(env -C "$PROJECT_DIR" $VERCEL --prod --yes 2>&1)"
+printf '%s\n' "$deploy_output" | tail -3
+
+site="$(printf '%s\n' "$deploy_output" |
+	sed -n 's/.*Production[[:space:]]\{1,\}\(https:\/\/[^[:space:]]*\).*/\1/p' | tail -1)"
+
+# Warming matters more than it looks. The catalogue routes are dynamic, so what a visitor gets is
+# the five-minute data cache; a route that has never been requested since the deploy has nothing
+# cached and would have to reach for a tunnel that may already be closed. Reading the catalogue to
+# find the routes keeps this list in step with the shop rather than duplicating it here.
+if [ -n "$site" ]; then
+	echo
+	echo "Warming every route on $site, so the catalogue survives this tunnel closing ..."
+
+	routes="$(curl -s --max-time 30 -X POST "$HOST/graphql" -H 'Content-Type: application/json' \
+		-d '{"query":"{ products { nodes { slug productCategories { nodes { slug } } } } }"}' |
+		node -e 'let s="";process.stdin.on("data",(d)=>{s+=d}).on("end",()=>{try{const p=JSON.parse(s);const set=new Set(["/","/shop","/checkout"]);for(const n of p.data.products.nodes){set.add("/product/"+n.slug);for(const c of n.productCategories.nodes){set.add("/shop/"+c.slug)}}console.log([...set].join(" "))}catch(error){console.log("")}})')"
+
+	for path in $routes; do
+		printf '  %-40s %s\n' "$path" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$site$path")"
+	done
+else
+	echo "Could not read the deployment URL from the CLI output; warm the routes by hand." >&2
+fi
 
 echo
 echo "Done. The site is deployed against $HOST."
