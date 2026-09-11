@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { MobileNavButton } from "@/components/layout/mobile-nav-button";
-import { NavLinks } from "@/components/layout/nav-links";
 import { buttonStyles } from "@/components/ui/button";
-import { getCatalogue } from "@/lib/wp/catalog";
+import type { Category } from "@/lib/wp/types";
 
 /** Wordmark and category navigation. */
-export async function Header() {
-  /*
-    A header is not worth failing a page over. With WordPress unreachable the navigation falls back
-    to the plain shop link, and the page below it decides what to say about the missing catalogue.
-  */
-  const categories = (await getCatalogue())?.categories ?? [];
-
+export function Header({ categories }: { categories: Category[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/80 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
@@ -23,7 +16,20 @@ export async function Header() {
           VAPESTACK
         </Link>
 
-        <NavLinks categories={categories} />
+        <nav aria-label="Categories" className="hidden items-center gap-6 text-sm md:flex">
+          <Link href="/shop" className="text-ink-200 transition hover:text-neon-400">
+            Shop
+          </Link>
+          {categories.map((category) => (
+            <Link
+              key={category.slug}
+              href={`/shop/${category.slug}`}
+              className="text-ink-200 transition hover:text-neon-400"
+            >
+              {category.name}
+            </Link>
+          ))}
+        </nav>
 
         {/*
           At mobile widths the nav is hidden and the header is tight, so the wordmark and the
@@ -41,12 +47,7 @@ export async function Header() {
             Shop all
           </Link>
 
-          {/*
-            Below `md` this is the only way to reach a range: the nav above is hidden and
-            "Shop all" is too. It renders itself hidden at `md` and up.
-          */}
           <MobileNavButton />
-
           <CartButton />
         </div>
       </div>

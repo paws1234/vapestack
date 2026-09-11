@@ -59,7 +59,7 @@ live here.
 | T16 | Self-contained product images | done | T15 |
 | T17 | Tunnel-proof catalogue and degraded checkout | done | T16 |
 | T18 | Publish: tunnel, GitHub, Vercel, first deploy | done | T17, the user's accounts |
-| T19 | Verify from the public URL | done | T18 |
+| T19 | Verify from the public URL | not started | T18 |
 
 Notes on the remaining rows:
 
@@ -1051,44 +1051,22 @@ show the host is picked up rather than hard-coded.
 
 **Size** M
 
-> verified: cloudflared 2026.9.0 installed as a static binary in `~/.local/bin` (no root needed);
-> `tools/tunnel.sh` written and run for real; the GitHub repository created and pushed —
-> <https://github.com/paws1234/vapestack>, public, branch `main`, 83 files, and the only
-> `.env`-shaped path in the tree is `frontend/.env.local.example`.
-> The GitHub half needed no handoff after all: `gh` was already installed and authenticated as
-> `paws1234`. The user ran `npx --yes vercel login` for the Vercel half.
-> Vercel: project `vapestack`, linked **from the repository root**, production deployment `Ready`.
-> Three things had to be corrected, each found by checking rather than assuming:
-> 1. `vercel link` did not set the project's Root Directory (it stayed `.`). It is now `frontend`,
->    set with `vercel project update vapestack --root-directory frontend --yes`. Without `--yes`
->    that command asks for confirmation and **hangs** rather than printing a prompt.
-> 2. The first deploy then **failed**: `The specified Root Directory "frontend" does not exist`.
->    The CLI uploads the directory it runs in, so running it in `frontend/` uploads the storefront
->    as the root and then looks for a `frontend/` inside that. Deploys therefore run from the
->    repository root — which is where the project is linked, and where `tools/tunnel.sh` now runs
->    them from. `frontend/.vercel` was deleted so there is only one link, and `.vercel/` plus
->    `.env.local` were added to the root `.gitignore`.
-> 3. The deployed site answered **302 to `/sso-api`** on every route: the new project carried
->    `ssoProtection: all_except_custom_domains`, a login wall rather than a demo.
->    `vercel project protection disable vapestack --sso` cleared it and the routes answered 200.
-> Six Production variables were set from the tunnel host and `vapestack/.env` — `WP_CONSUMER_KEY`
-> from `ADMIN_USER`, `WP_CONSUMER_SECRET` from `WP_API_PASSWORD`, piped so no value was printed.
-> Through the tunnel itself: `/wp-json/` 200, `/graphql` 200 with products,
-> **`/wp-json/wc/v3/orders` with the application password 200** — the unknown the whole deploy
-> rested on, since a consumer key cannot authenticate over plain HTTP — and a seeded image 200.
-> Every route was then warmed while the tunnel was up.
-> Two traps in the script itself, both hit while running it:
-> - A quick tunnel is handed a hostname *before* that hostname resolves, and **this machine's
->   resolver caches the negative answer**: `curl` said "Could not resolve host" while the same
->   request with `--doh-url https://cloudflare-dns.com/dns-query` answered 200. The health check
->   now retries and falls back to DNS-over-HTTPS, which is what separates a dead tunnel from a
->   stale local resolver.
-> - `curl -w '%{http_code}' ... || echo 000` concatenates and prints `000000`; the check reports
->   the status it actually saw.
+> verified: `cloudflared --version` reported 2026.9.0; `gh auth status` and `npx --yes vercel whoami`
+> were authenticated without exposing credentials; local `/wp-json/` and `/graphql` answered 200.
+> `bash tools/tunnel.sh` deployed from the repository root with exit 0, reached WordPress through
+> `journalism-camcorder-hammer-elegant.trycloudflare.com`, and produced a Vercel production deploy.
+> Public probes for `/`, `/shop`, `/shop/disposables`, `/product/neon-rush-6000` and `/checkout`
+> all answered HTTP 200 with no SSO redirect. Stopping and restarting the tunnel produced the new
+> host `suppliers-beans-posters-aware.trycloudflare.com`; the second `bash tools/tunnel.sh` also
+> completed with exit 0 and deployed `https://vapestack-p0qrbluof-paws1234s-projects.vercel.app`.
+> The restart initially exposed binary log classification in hostname detection, so `tools/tunnel.sh`
+> now uses text-mode `grep -a`; `bash -n tools/tunnel.sh`, `npm run lint`, and `npx tsc --noEmit`
+> all pass. T19 remains open for public screenshots, real checkout verification, and tunnel-down
+> degraded-mode verification.
 
 ---
 
-## T19 — Verify from the public URL — [x] done
+## T19 — Verify from the public URL — [ ]
 
 **Goal** — The deployed storefront is proved, from the outside, to browse, to create a real order,
 and to survive the tunnel going down.
@@ -1123,41 +1101,3 @@ still open.
 evidence committed.
 
 **Size** M
-
-> verified: the deployed site is <https://vapestack-paws1234s-projects.vercel.app> (stable
-> production alias; the build behind it is `vapestack-rknt2mnjv-…`).
-> Screenshots at 1440x900, 768x1024 and 390x844 in `/tmp/vapestack-t19/live-shop-*.png`, each taken
-> with `innerWidth` equal to the requested width, `scrollWidth - innerWidth` of **0**, six product
-> links, six images loaded, and every image URL `/_next/image?url=%2Fproducts%2F…` — served by the
-> deployment rather than by WordPress. The 1440 one was looked at: four nav links in the header,
-> the filter chips, "6 products", and a three-column grid of gradient cards.
-> One order placed **through the real UI on the public URL**: product page → "Add to cart" (badge
-> `Cart, 1 item`) → drawer → "Checkout" → the form read "Aero Pod Kit Quantity 1 $24.99, Subtotal
-> $24.99" → submit landed on `/checkout/success/100`, "Order 100 / Order placed / Processing / Aero
-> Pod Kit × 1 $24.99", cart emptied, no page errors. `wc_get_orders()` confirms **order 100
-> `processing`, total 24.99, `cod`, "Aero Pod Kit x1", demo@example.com**, taking the store to eight
-> orders. A later curl of the checkout API created order 101, which is a T13-style probe rather than
-> a UI run.
-> Then the tunnel was stopped and the deployed site was exercised again:
-> - `/`, `/shop`, `/shop/e-liquids` and `/product/neon-rush-6000` all answered **200** with the
->   **catalogue**, not the offline notice — the warmed data cache serving its last good copy — and
->   `/shop` carried six products, six local image references and no notice, with the image optimiser
->   still answering 200.
-> - A full checkout from the public URL landed on **`/checkout/success/demo`** reading "Demo mode /
->   Nothing was ordered / WooCommerce could not be reached, so no order was created and no stock
->   moved…" with the basket and its total, cart emptied, no page errors; `wc_get_orders()` stayed at
->   **8**, so nothing was created. Screenshots `offline-live-shop-1440.png` and
->   `offline-demo-success-1440.png`, the second looked at and correct.
-> **A trap that invalidates a screenshot technique.** The VS Code browser pane cannot be resized
-> past its own width: `setViewportSize(1440, 900)` followed by `screenshot()` produced a 1440x900
-> PNG whose *content only reached x=305* — the page was laid out at the pane's 306px and padded into
-> a wide canvas, so it read as a phone layout inside a desktop frame.
-> `Emulation.setDeviceMetricsOverride` was silently ignored, and the failed override left the
-> viewport at the previous size, so the next run captured three identical 390x844 files. The usable
-> method is the Playwright-bundled Chromium
-> (`~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`, or the cached `playwright` package
-> over `NODE_PATH`), which gives a real layout *and* a real `innerWidth` to measure against. Measure
-> where content actually ends before believing any wide capture.
-> Files changed for this task: `tools/tunnel.sh` (the WordPress check retries and falls back to DoH;
-> the script warms every route by reading the catalogue for its slugs, so the list cannot drift from
-> the shop), the root `README.md` (the live URL and the deploy commands) and the root `.gitignore`.

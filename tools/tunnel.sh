@@ -84,8 +84,8 @@ start_tunnel() {
 
 	# The hostname appears a few seconds in; the tunnel is not usable until it does.
 	for _ in $(seq 1 40); do
-		if grep -qoE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG" 2>/dev/null; then
-			grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG" | head -1 >"$HOST_FILE"
+		if grep -a -qoE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG" 2>/dev/null; then
+			grep -a -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$LOG" | head -1 >"$HOST_FILE"
 
 			return
 		fi
