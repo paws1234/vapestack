@@ -16,6 +16,10 @@ wp-content/cache/
 wp-content/debug.log
 *.log
 
+# tools/tunnel.sh keeps the quick tunnel's pid, log and hostname here. Machine-specific and
+# regenerated on every start, so it is never committed.
+.tunnel/
+
 # The storefront is a real app built in place, so keep its dependencies and build output out of
 # version control. frontend/.gitignore covers the same ground for its own directory.
 frontend/node_modules/
