@@ -831,7 +831,30 @@ showing the order; the same with JavaScript disabled in the browser; screenshots
 
 ---
 
-## T9 — Product card polish — `[ ]`
+## T9 — Product card polish — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/t9/verify.cjs` (Playwright + bundled Chromium, real viewports).
+> **Keyboard walk** at 1440: the 12th-15th tab stops are the four cards in view, each reported
+> `isCard: true, inCard: true` with `outline: solid 2px rgb(182, 255, 61)` — one stop per card,
+> one ring, and four consecutive stops means no card contains a second focusable element.
+> **Range**: `Frost Rush 3000 $9.99–$10.99` in the card's own text; `Price` now renders both ends
+> for any product whose `min !== max` (it is only ever called with `min === max` everywhere else).
+> **Sold out** (product 85 forced out of stock, then restored to qty 6): the badge's own computed
+> fill is `ink-950/90` (`oklab(0.135 …)`) — 18.55:1 for `ink-50` over that fill composited on the
+> image well, and 15.21:1 in the worst case of a pure-white image showing through the 10%. The
+> card stayed a link. **Overflow** 0 at 1440/768/390 (`scrollWidth === clientWidth`), no card text
+> clipped. Shots of the normal catalogue: `/tmp/ui/t15/final-shop-{1440,768,390}.png` (taken on a
+> later, healthy catalogue — the three `t9/shop-*.png` files are identical to each other because
+> the sold-out capture was still in the five-minute data cache, so they are the *sold-out* state,
+> not the normal one). Sold-out shots: `/tmp/ui/t9/soldout-shop-{1440,768,390}.png`, `file` says
+> `1440x900`, `768x1024`, `390x844`.
+>
+> TRAP worth keeping: the app's own five-minute catalogue cache (`REVALIDATE_SECONDS`) made two
+> runs 30s apart render the same data, so the "before" and "after" screenshots came out
+> byte-identical and the first sold-out probe found no badge at all. Delete `.next` and restart
+> `next dev` to force the catalogue to be re-read; nothing else does it.
+>
+---
 
 **Goal** — A card is one clear focus target with a visible ring, a sold-out state that stays
 readable, and a price that reads as a range.
@@ -871,7 +894,37 @@ of tab stops per card.
 
 ---
 
-## T10 — Product page depth — `[ ]`
+## T10 — Product page depth — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/t10/verify.cjs`.
+> **Breadcrumbs** — `/product/neon-rush-6000` renders `Home / Shop / Disposables / Neon Rush 6000`
+> as `nav[aria-label="Breadcrumb"] > ol > li` ×4, the last one `aria-current="page"` and not a
+> link; `/product/midnight-berry-e-liquid` renders `Home / Shop / E-Liquids / Midnight Berry
+> E-Liquid`. Both `script[type="application/ld+json"]` blocks **`JSON.parse` cleanly** and carry
+> the right `@type` (`BreadcrumbList`, positions 1-4, absolute item URLs; `Product` with name,
+> description, url, `sku: "VS-DSP-6000"`, `image`, `offers { price 12.99, priceCurrency USD,
+> availability https://schema.org/InStock }`) — no `brand`, no `aggregateRating`.
+> **Quantity** — start 1, `+` `+` → 3, Add → `localStorage['vapestack-cart']` holds **one** line
+> `key 60:61 quantity 3` (options `Blue Razz Ice · 3mg`); the counter is back at **1** after the
+> add; `+` `+` Add → the same line at **6**. 120 clicks on `+` settle at **99** with the button
+> `disabled`, and `-` gives 98 — `MAX_QUANTITY` respected. Selecting `Mango Sunset` + `6mg`
+> (variation 66, the seeded sold-out one) leaves Add `disabled` with the notice
+> `Mango Sunset · 6mg is sold out — 3mg is available.`
+> **Details/shipping** — `Details` renders the WordPress short description
+> (`6000 puffs, mesh coil, USB-C rechargeable.`), the row is conditional so a product without one
+> shows no empty block, and `Shipping and payment` states nothing ships and nothing is charged.
+> **Related** — `More from Disposables` lists exactly `Frost Rush 3000` (the range's only other
+> product) and never the product being viewed; the section is absent when there are none.
+> **Overflow** 0 at 1440/768/390. Shots `/tmp/ui/t10/pdp-{1440,768,390}.png` (1440x900, 768x1024,
+> 390x844) plus full-page captures.
+>
+> TRAP found and fixed while doing this: **WPGraphQL answers a GraphQL *syntax error* with HTTP
+> 500.** A JavaScript block comment inside the catalogue document therefore looked exactly like
+> "WordPress is away" — every page served the offline notice while `curl` answered the same query
+> with a 200. Only GraphQL hash comments belong inside a document; `queries.ts` now says so.
+> TRAP: a backtick in a comment inside a template literal ends the literal. Both cost real time.
+>
+---
 
 **Goal** — The product page gains breadcrumbs with JSON-LD, a quantity selector, spec and shipping
 details, related products, and valid `Product` JSON-LD.
@@ -927,7 +980,24 @@ line quantity and `localStorage` read back.
 
 ---
 
-## T11 — Home page sections and copy — `[ ]`
+## T11 — Home page sections and copy — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/t11/verify.cjs`.
+> **Heading outline** read from the DOM: `H1 60px "Pick a range, pick a flavour, pick a
+> strength."` → `H2 24px "Shop by range"` → `H2 24px "One from each range"` → `H3 16px` ×3
+> (the product cards) → `H2 24px "What this shop is"`. No skipped level, one `h1`, and both
+> section headings at the same 24px section scale ("Ranges" used to be an `h2` at the eyebrow
+> size). **Section rhythm**: `getComputedStyle(section).marginTop` is `64px` for **all four**
+> sections — the hero included, so the duplicate value is 1 and not 0. **Hero copy** names no
+> technology (`/WordPress|Next\.js|GraphQL|headless/i` on the hero's text → false); the eyebrow is
+> the three range names. **Trust band** has three claims: a portfolio demo, 21 and over, nothing
+> charged and nothing shipped. **No overflow** at 1440/768/390; shots
+> `/tmp/ui/t11/home-{1440,768,390}.png` (1440x900 / 768x1024 / 390x844) plus full-page captures.
+> **Offline** — proved with a cold cache instead of a warm one: `$WPDEV down`, `rm -rf .next`,
+> `next dev`, then `/` serves the offline notice at 200 while `/about`, `/checkout` and the footer
+> still render. See T12 for the same window.
+
+---
 
 **Goal** — The home page reads like a shop, has a consistent section rhythm and heading hierarchy,
 and carries one honest trust band.
@@ -968,7 +1038,35 @@ read.
 
 ---
 
-## T12 — Metadata, OG image, sitemap and robots — `[ ]`
+## T12 — Metadata, OG image, sitemap and robots — `[x]` done
+
+> verified 2026-09-11.
+> **`curl -s localhost:3000/robots.txt`** → `User-Agent: * / Disallow: /` plus
+> `Sitemap: http://localhost:3000/sitemap.xml`, status 200. **`.../sitemap.xml`** → a real
+> `<urlset>` with the 7 static routes **and** the 3 category routes and 6 product routes read at
+> request time, status 200. **`/` HTML**: `<link rel="canonical" href="http://localhost:3000">`,
+> `og:image` = `/opengraph-image?a14572ff68ba0ef9` (type `image/png`, 1200x630, with `og:image:alt`),
+> `twitter:card` = `summary_large_image`, `theme-color` = `#07080c`, and the icon entry.
+> `/opengraph-image` itself fetched and `file`d: **PNG 1200x630**. Titles follow the template
+> (`Vapestack`, `Shop | Vapestack`).
+>
+> **`npm run build` with `$WPDEV down`** → `✓ Compiled successfully in 3.9s`, TypeScript clean,
+> `✓ Generating static pages (4/4)`, exit 0. Route table: **`/sitemap.xml` is `ƒ (Dynamic)`** — so
+> `export const dynamic = "force-dynamic"` *is* honoured for a sitemap and the catalogue half of it
+> is real, not the static-only fallback the task allowed for. `/opengraph-image` and `/robots.txt`
+> are `○ (Static)`, which is correct: neither reads WordPress. `npx tsc --noEmit` exit 0,
+> `npm run lint` exit 0 (both also run with WordPress up).
+> **SVGs**: `grep -rn "file.svg\|globe.svg\|next.svg\|vercel.svg\|window.svg" src/` → no matches;
+> the five files are deleted and `public/` now holds only `products/`, with the build still green.
+>
+> Deviation, deliberate: canonical URLs are declared **per route** (`/` in `app/page.tsx`,
+> `/product/<slug>` in the product page's `generateMetadata`) rather than once in `app/layout.tsx`.
+> A layout-level canonical is inherited by every page and would claim the whole site lives at `/`,
+> which is worse than emitting none, so the layout sets `metadataBase` and leaves `alternates`
+> alone. The other content pages still carry no canonical; adding one is a one-line change per page
+> whenever it is wanted.
+
+---
 
 **Goal** — Share links have an image, titles and canonicals are correct, and `/sitemap.xml` and
 `/robots.txt` answer with real content — without the build ever touching WordPress.
@@ -1018,7 +1116,32 @@ observed result; `grep` for `og:image` in the served HTML; `grep -rn "next.svg\|
 
 ---
 
-## T13 — Motion and reduced motion — `[ ]`
+## T13 — Motion and reduced motion — `[x]` done
+
+> verified 2026-09-11. `/tmp/ui/t13/{verify,card-hover}.cjs`, two contexts per run (one with
+> `reducedMotion: "reduce"`).
+> **Cart drawer**: normal `transition-property: transform, translate, scale, rotate`, `0.3s`,
+> `cubic-bezier(0, 0, 0.2, 1)` (ease-out), `translate` `100%` closed → `0px` open. Reduced motion:
+> `transition-property: none`, `translate` still `100%` → `0px` — the state changes, nothing moves.
+> The backdrop keeps `motion-reduce:transition-none` on its opacity transition. **Mobile nav**:
+> identical numbers, before and after. **Card image**: measured with a **real pointer move** —
+> the first attempt dispatched `mouseover` events and got `scale: none` in *both* modes, which
+> proved nothing, because Tailwind's `group-hover:` is a CSS `:hover` rule; with `page.mouse.move`
+> the image reports `scale: 1.05` at `0.5s` when motion is allowed and `scale: none` at `0s` when it
+> is reduced, with `el.matches(":hover")` true in both. **`grep -rn "animate-\|duration-" src/`**
+> finds no `animate-` at all and only these three moving things; every other hit is a bare
+> `transition` on colour, border or opacity.
+> **No skeleton**: T7 removed `app/loading.tsx` on purpose, so there is no pulse to suppress — and
+> `UI-STANDARDS.md` now records what a future `<Suspense>` fallback would have to carry.
+> **Nothing depends on a transition finishing**: both overlays stay mounted, and `inert` +
+> `pointer-events-none` are applied in the same commit as the `translate` change, so a suppressed
+> animation cannot leave a panel unreachable or a "closed" panel clickable.
+>
+> `frontend/UI-STANDARDS.md` gained a **Motion and reduced motion** table: every moving element with
+> its duration, easing and guard, the shape of the card's `motion-safe:` + `motion-reduce:duration-0`
+> pair, and the note that the skeleton is gone rather than merely unanimated.
+
+---
 
 **Goal** — Every animation in the app respects `prefers-reduced-motion`, and durations and easings
 are named in the standards doc.
@@ -1060,7 +1183,42 @@ the nav; the `grep` output; a statement of what changed visually in each mode.
 
 ---
 
-## T14 — Documentation updates — `[ ]`
+## T14 — Documentation updates — `[x]` done
+
+> verified 2026-09-11.
+> **The pointer survives the generator.** `frontend/AGENTS.md` gained a `## Read
+> \`UI-STANDARDS.md\` before changing anything visual` section **below** the
+> `<!-- END:nextjs-agent-rules -->` marker; `md5sum` was taken before stopping `next dev`, the
+> server was restarted, and the file is byte-identical afterwards, so `next dev` re-adds its block
+> without rewriting the rest. `grep -n "UI-STANDARDS" frontend/AGENTS.md frontend/CLAUDE.md
+> frontend/README.md` reports the new section in `AGENTS.md` and the table row in `README.md`;
+> `frontend/CLAUDE.md` is a single line, `@AGENTS.md`, so the import is the one hop.
+> **`frontend/README.md`** — the routes row now names `/checkout/success/[id]`, the five info pages,
+> the four metadata routes and the designed 404/error; `src/components/product/`, `src/lib/site.ts`
+> and `UI-STANDARDS.md` are in the table; a **Frontend commands** table carries `dev` / `build` /
+> `start` / `lint` / `tsc --noEmit` and the `rm -rf .next` note. The three existing "worth knowing"
+> rules are untouched and a **fourth** was added — there is no root `loading.tsx` and adding one
+> costs every `notFound()` route its 404 (5/5 measured each way) — because that fact is new since
+> those three were written and is exactly the kind of thing a later agent repeats.
+> **Root `README.md`** — a **The storefront's routes** table (nine rows) and a pointer to
+> `frontend/UI-STANDARDS.md`, added under the existing backend/storefront bullets.
+> **`docs/PROMPTS.md`** — a "The storefront — three reusable UI prompts" section: audit one page at
+> three widths, restyle a section against the standards, add a route with a designed state.
+> **`.claude/plan.md`** — one closing block saying the UI/UX work continues in
+> `docs/ui-ux-plan.md` with its tasks in `docs/ui-ux-tasks.md`, and that `.claude/tasks.md` stays as
+> it is. `.claude/tasks.md` was not opened.
+>
+> **Deviation, and the reason:** the frontend command table went into `frontend/README.md` rather
+> than into the root `CLAUDE.md`. `CLAUDE.md` is **generated** — `wpdev sync` (and `wpdev new`)
+> writes it from `wp-kit/template/CLAUDE.md`, which `grep -n CLAUDE wp-kit/bin/wpdev` confirms at
+> line 331 and again in sync's "regenerated .vscode/mcp.json, .mcp.json and CLAUDE.md for port
+> $port". A row added there would survive until the next `wpdev sync` and then vanish, and editing
+> the kit to keep it is out of bounds. `frontend/README.md` already had the Scripts table and is
+> where a frontend agent starts, so the commands live there. The root `CLAUDE.md` is left exactly
+> as `wpdev` wrote it.
+
+---
+
 
 **Goal** — The repository's own entry points describe the site that now exists, and the UI standards
 are reachable from the file an agent reads first inside `frontend/`.
@@ -1104,7 +1262,94 @@ file under `wp-kit/`.
 
 ---
 
-## T15 — End-to-end verification sweep — `[ ]`
+## T15 — End-to-end verification sweep — `[x]` done
+
+> verified 2026-09-11. WordPress on 8889, the storefront on **3000** (`next dev`) and, for the
+> keyboard pass, on **3001** (`next start` over the production build — the dev server injects a
+> focusable Next.js dev-tools portal, which took the first Tab and made a correct skip link look
+> broken). Scripts: `/tmp/ui/t15/{sweep,states,skip-link,skip-activate,prod-states,contrast,empty,offline,footer-slow,slow-nav}.cjs`.
+>
+> **Routes.** 63 route × width pairs (**21 routes** at 1440x900 / 768x1024 / 390x844), then the
+> same 63 again on the final code. Every screenshot's real dimensions confirmed with `file`
+> (21 files of each of the three sizes). **Overflow 0 everywhere**, at every width, including the
+> 404s. **Exactly one `h1` on every page.** The only non-200 statuses are the three designed 404s
+> (`/totally-unknown-route`, `/product/does-not-exist`, `/shop/does-not-exist`), each answering
+> **404**, not a 200 with a 404 page.
+>
+> **States.** Age gate: present at all three widths with its heading and both buttons, no
+> overflow. Cart drawer: empty ("Nothing in the cart yet. Browse the shop", no checkout link) and
+> full (two lines, subtotal `$38.97`, checkout link present) at all three widths. Mobile nav:
+> trigger hidden at 1440/768 and visible at 390, opening onto `/shop` plus the three ranges plus
+> "Shop all". Error page: `/error-probe` answers **500** with "This page could not be rendered" and
+> two ways out at all three widths, and its own **Try again** recovers the route (probe → 500,
+> set the probe cookie, click → "Probe recovered"). The probe was deleted afterwards and the final
+> route table no longer lists it. Empty catalogue: with all six products drafted and a cold cache,
+> `/shop` shows the designed empty block, the ranges and the product 404 — see the false item
+> below. Offline: with `$WPDEV down` and a cold cache, `/`, `/shop`, `/shop/e-liquids`,
+> `/product/neon-rush-6000`, `/checkout` and `/about` all answer **200**, `overflow 0`, every
+> image still decodes, the footer drops to its single degraded Shop link, and the three info pages
+> keep their own content.
+>
+> **Keyboard pass** (production build, 390 and 1440): with the gate answered the first Tab is
+> `A "Skip to content" → #main-content` with `outline: solid 2px rgb(182, 255, 61)`, then the
+> wordmark, then Shop; activating it moves focus to `MAIN#main-content (tabIndex -1)` and the next
+> Tab continues *inside* `main` ("All"). 14 controls focused in turn: **zero without a ring**, all
+> `solid 2px rgb(182, 255, 61)`. The nav opens with Enter, closes with Escape and returns focus to
+> the element with `aria-controls="mobile-nav"`; the drawer does the same and returns focus to
+> `Cart, 3 items`. **Nav and drawer are never open together**: opening the nav then the cart
+> reports **1** open dialog, and the reverse order also reports **1**.
+>
+> **Contrast, re-measured** on the production server from `getComputedStyle`, compositing each
+> element's ancestor stack (the values that reach the browser are not the token hex values — an
+> alpha surface arrives as `oklab(...)`, so the script converts it). 15 checks, **0 failures**:
+> `--color-line` `rgb(91, 100, 120)` measures **3.37:1** on `ink-950` and **3.27:1** on `ink-900`
+> for the product card, an inactive range chip, the sort select, the sort Apply button, the outline
+> button, a range tile, the billing input and the checkout textarea — against T1's 1.21:1/1.25:1
+> for the old `ink-700` border and T2's predicted 3.28/3.38. Text: `ink-400` 5.24 (on a card) and
+> 5.4, `ink-200` 12.8, `ink-50` on `ink-950` 18.66, `neon-400` on a card 16.06, `ink-950` on a
+> `neon-400` fill 16.55. Focus ring `solid 2px rgb(182, 255, 61)`.
+>
+> **Commands.** `npx tsc --noEmit` exit 0, `npm run lint` exit 0, `npm run build` exit 0 **twice
+> with `$WPDEV down`** — `✓ Compiled successfully`, `✓ Generating static pages (4/4)`, every route
+> `ƒ (Dynamic)` except `○ /opengraph-image` and `○ /robots.txt`, which read nothing from WordPress.
+> Dev-only console noise, and it is dev-only: on the production server `/product/does-not-exist`,
+> `/shop/does-not-exist`, `/totally-unknown-route`, `/product/neon-rush-6000` and `/` were loaded
+> with `console`/`pageerror` listeners attached before navigation and reported **no warnings and no
+> errors** at all (only the expected 404 resource messages). In dev, Next's own overlay emits
+> "Encountered a script tag while rendering React component" on the 404 routes; it is not the app.
+>
+> **A false item, reported as a finding.** Done-when item 7 says *"an empty range shows a designed
+> empty state"*. It does not, and cannot: `getCatalogue()` derives its categories **from** the
+> products, so unpublishing every product in a range deletes the range. Re-proved today with all
+> six products drafted and a cold cache: **`/shop` 200 with the designed empty block, while
+> `/shop/disposables` and `/shop/e-liquids` answer 404** (`There is nothing at that address`). The
+> reachable empty state is the whole shop. The plan's own wording is what is wrong here, not the
+> code — the item is false, and this is the finding.
+>
+> **A small fix the sweep turned up, applied.** With the whole catalogue empty, `/` rendered the
+> hero and then a "Shop by range" heading over an empty grid and a "One from each range" heading
+> over another — a heading over nothing is the same defect `ProductGrid` already guards against.
+> `app/page.tsx` now renders one designed empty block instead of those two sections when
+> `products.length === 0` (`There is nothing in the catalogue right now`, with a way out), verified
+> at all three widths with the catalogue still empty: headings `[hero, "There is nothing in the
+> catalogue right now", "What this shop is"]`, 0 cards, overflow 0, status 200.
+>
+> **Done-when checklist** — **8 true, 1 false**:
+>
+> | # | Item | Verdict |
+> | --- | --- | --- |
+> | 1 | build, tsc, lint clean; build makes no request to WordPress | **true** — exit 0 for all three, build run twice with `$WPDEV down` |
+> | 2 | At 390 the ranges and the shop are reachable from the header in ≤2 taps, and the footer links to Shop, the three ranges, About, Contact, Shipping & Returns, Privacy, Terms | **true** — the nav panel holds `/shop` + 3 ranges + "Shop all"; the footer's 11 links include all 8 named |
+> | 3 | The footer renders the 21+ notice, a copyright line and the demo disclaimer, and still renders with WordPress stopped | **true** — measured on the last build; the offline pass shows it with the tunnel closed |
+> | 4 | Unknown product slug, unknown category slug, a thrown error and a slow route each show a designed page, and the unknown slug answers 404 | **true**, with the slow route stated precisely: a 404 and the error page are designed and answer 500/404; during a **slow client-side navigation** the previous page stays on screen (`stillTheShop: true`, no spinner) and the new page arrives; during a slow **document load** the browser has no HTML yet, so it shows a blank document. There is no skeleton on purpose — a `loading.tsx` would cost every 404 its status (T7) |
+> | 5 | Every interactive border ≥3:1, re-measured in the browser | **true** — 15 measurements, 0 failures, 3.27–3.37:1 for every `--color-line` boundary |
+> | 6 | The product page shows breadcrumbs, a quantity selector, spec/shipping details and related products, and emits valid `Product` and `BreadcrumbList` JSON-LD | **true** — T10, and both blocks `JSON.parse` cleanly on the final build |
+> | 7 | The shop sorts by URL and an empty range shows a designed empty state | **half true, half false** — `?sort=price-asc` / `?sort=price-desc` re-verified on the final code (name, then 9.99→34.99, then 34.99→9.99); **an empty range 404s instead**, because the ranges are derived from the products |
+> | 8 | `/sitemap.xml` and `/robots.txt` answer with real content; a shared link has an OG image | **true** — T12; `/opengraph-image` fetched as a real 1200x630 PNG |
+> | 9 | `frontend/UI-STANDARDS.md` exists and is what the visual tasks load as context | **true** — it is the context file for T2–T15, and T13 added its motion table |
+
+---
+
 
 **Goal** — Everything in the plan's Done-when is shown true at three widths, in the browser, with
 the evidence reported.

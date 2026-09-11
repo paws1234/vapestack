@@ -46,6 +46,8 @@ export type Product = {
   id: number;
   name: string;
   slug: string;
+  /** WooCommerce SKU. Empty when the product has none. */
+  sku: string;
   /** HTML, as authored in WordPress. */
   description: string;
   /** HTML, as authored in WordPress. */

@@ -173,3 +173,10 @@ behind a tunnel so it can be clicked from a link.
   way and is the only evidence worth quoting.
 - Product images are generated locally as gradient PNGs: deterministic and no network dependency
   at seed time.
+
+---
+
+This plan is finished. The storefront's UI/UX work continues in **`docs/ui-ux-plan.md`** (findings,
+steps, Done-when) with its tasks in **`docs/ui-ux-tasks.md`** — read those instead of adding to this
+file, and leave `.claude/tasks.md` as the record of the backend and deploy work it already is.
+

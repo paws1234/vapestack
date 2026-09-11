@@ -16,6 +16,22 @@ plainly that no order was created.
   design system, a 21+ age gate, live flavour and nicotine-strength selectors, a cart that survives
   a reload, and a mock checkout that creates a real `processing` WooCommerce order.
 
+## The storefront's routes
+
+| Route | What it is |
+| --- | --- |
+| `/` | Hero, the three ranges, one product from each, and one honest paragraph about what this shop is. |
+| `/shop`, `/shop/[category]` | The catalogue and one range. Sorting lives in the URL (`?sort=price-asc`), the sort control is a real `GET` form so it works without JavaScript, and the result count is announced. |
+| `/product/[slug]` | One product: breadcrumbs, live option selectors with per-combination stock, a quantity stepper, details and the shipping statement, the rest of its range, and `Product` + `BreadcrumbList` JSON-LD. |
+| `/checkout`, `/checkout/success/[id]` | The demo checkout and the receipt for the order it created. No payment is taken. |
+| `/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms` | Info and legal pages. None of them reads the catalogue, so all five render with WordPress stopped. |
+| `/robots.txt`, `/sitemap.xml`, `/opengraph-image` | Metadata routes. The sitemap is rendered per request and lists the catalogue as well as the static routes. |
+| `app/not-found.tsx`, `app/error.tsx` | The designed 404 and the error state. Unknown product and range slugs answer a real 404, which is why there is no `app/loading.tsx` — see `frontend/UI-STANDARDS.md`. |
+
+Everything visual is governed by `frontend/UI-STANDARDS.md`: measured contrast ratios, the type and
+spacing rhythm, the five states a control must define, the a11y checklist and the reduced-motion
+rule. It is the file to read before changing anything on screen.
+
 ## Layout
 
 | Path | What it is |

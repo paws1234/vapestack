@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgeGate } from "@/components/age-gate";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -7,8 +7,13 @@ import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
+import { siteUrl } from "@/lib/site";
 import { getCatalogue } from "@/lib/wp/catalog";
 import "./globals.css";
+
+/** One description, used by the metadata, OpenGraph and Twitter tags alike. */
+const DESCRIPTION =
+  "A portfolio vape storefront: Next.js and Tailwind in front, a real WooCommerce and WPGraphQL shop behind it. 21+ only, nothing ships.";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,12 +36,47 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  /*
+    `metadataBase` is what turns every relative URL in metadata — the OpenGraph image, the
+    canonical, the icon — into the absolute one a crawler or a chat client needs. Without it Next
+    warns and emits `http://localhost:3000` in production.
+  */
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "Vapestack",
     template: "%s | Vapestack",
   },
-  description:
-    "A headless vape storefront: Next.js and Tailwind on the front, WooCommerce and WPGraphQL behind it.",
+  description: DESCRIPTION,
+  applicationName: "Vapestack",
+  openGraph: {
+    type: "website",
+    siteName: "Vapestack",
+    title: "Vapestack",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vapestack",
+    description: DESCRIPTION,
+  },
+  /*
+    The icon is the one `create-next-app` left in `app/favicon.ico`. Naming it explicitly rather
+    than relying on the file convention keeps it in the metadata where it can be seen.
+  */
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "any" }],
+  },
+};
+
+/**
+ * The browser chrome colour, in the page background token.
+ *
+ * `themeColor` lives in the `viewport` export rather than in `metadata` — Next moved it, and a
+ * `themeColor` left in `metadata` is ignored with a warning.
+ */
+export const viewport: Viewport = {
+  themeColor: "#07080c",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

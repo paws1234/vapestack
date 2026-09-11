@@ -41,6 +41,7 @@ type RawProduct = {
   databaseId: number;
   name: string;
   slug: string;
+  sku?: string | null;
   description: string | null;
   shortDescription: string | null;
   stockStatus: string;
@@ -149,6 +150,7 @@ function mapProduct(raw: RawProduct): Product {
     id: raw.databaseId,
     name: raw.name,
     slug: raw.slug,
+    sku: raw.sku?.trim() ?? "",
     description: raw.description ?? "",
     shortDescription: raw.shortDescription ?? "",
     category: raw.productCategories.nodes[0] ?? null,

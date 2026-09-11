@@ -12,7 +12,13 @@ const FORMATTER = new Intl.NumberFormat("en-US", {
 });
 
 /**
- * Renders a price, or the cheapest end of a range.
+ * Renders a price, or both ends of a range.
+ *
+ * A variable product's variations can differ in price, and "from $9.99" leaves the customer to
+ * guess the other end. Both ends are shown instead, separated by an en dash: the two numbers carry
+ * the same type scale and weight as a single price, so a range is not a small word glued to a big
+ * one. The dash is decorative and hidden from assistive technology, which would otherwise read it
+ * as "en dash" between the two amounts.
  *
  * @param props.min Cheapest price in the product's variations.
  * @param props.max Most expensive, equal to min when there is only one price.
@@ -32,8 +38,11 @@ export function Price({
 
   return (
     <span className={className}>
-      <span className="text-xs font-normal text-ink-400">from </span>
       {FORMATTER.format(min)}
+      <span aria-hidden className="mx-1 font-normal text-ink-400">
+        –
+      </span>
+      {FORMATTER.format(max)}
     </span>
   );
 }

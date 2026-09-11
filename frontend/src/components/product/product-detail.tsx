@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
+import { QuantityPicker } from "@/components/product/quantity-picker";
 import { useCartStore } from "@/stores/cart";
 import type { Product } from "@/lib/wp/types";
 import {
@@ -53,6 +54,7 @@ function optionClasses(selected: boolean, available: boolean): string {
  */
 export function ProductDetail({ product }: { product: Product }) {
   const [selection, setSelection] = useState<Selection>(() => initialSelection(product));
+  const [quantity, setQuantity] = useState(1);
 
   const add = useCartStore((state) => state.add);
   const openCart = useCartStore((state) => state.open);
@@ -79,26 +81,33 @@ export function ProductDetail({ product }: { product: Product }) {
   }
 
   /**
-   * Adds the combination currently on screen.
+   * Adds the combination currently on screen, in the quantity currently on screen.
    *
    * Both ids go in, because that is what the checkout API posts: `productId` for a simple
-   * product's line, `variationId` as well for a variation's.
+   * product's line, `variationId` as well for a variation's. The quantity is clamped inside the
+   * store as well as by the picker, so nothing here can add more of something than the shop
+   * allows. The picker goes back to one afterwards: the next addition is a new decision, and
+   * leaving the last one standing invites adding three more by accident.
    */
   function addToCart() {
     if (!inStock) {
       return;
     }
 
-    add({
-      productId: product.id,
-      variationId: variation?.id ?? null,
-      slug: product.slug,
-      name: product.name,
-      options: chosenOptionLabels(product, selection),
-      unitPrice: price,
-      image,
-    });
+    add(
+      {
+        productId: product.id,
+        variationId: variation?.id ?? null,
+        slug: product.slug,
+        name: product.name,
+        options: chosenOptionLabels(product, selection),
+        unitPrice: price,
+        image,
+      },
+      quantity,
+    );
 
+    setQuantity(1);
     openCart();
   }
 
@@ -204,7 +213,9 @@ export function ProductDetail({ product }: { product: Product }) {
           </div>
         ) : null}
 
-        <div className="border-t border-ink-800 pt-6">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-ink-800 pt-6">
+          <QuantityPicker value={quantity} onChange={setQuantity} productName={product.name} />
+
           {/*
             Disabled rather than hidden when the chosen combination is sold out: the notice and
             the struck-through option above already say why, and a control that vanishes is

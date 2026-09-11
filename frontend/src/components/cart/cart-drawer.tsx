@@ -46,7 +46,7 @@ export function CartDrawer() {
       <div
         onClick={close}
         aria-hidden="true"
-        className={`absolute inset-0 bg-ink-950/70 backdrop-blur-sm transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-ink-950/70 backdrop-blur-sm transition-opacity duration-300 motion-reduce:transition-none ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -58,7 +58,7 @@ export function CartDrawer() {
         aria-labelledby="cart-drawer-title"
         tabIndex={-1}
         inert={!isOpen}
-        className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-ink-800 bg-ink-900 shadow-2xl transition-transform duration-300 ease-out ${
+        className={`absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-ink-800 bg-ink-900 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

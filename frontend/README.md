@@ -39,14 +39,16 @@ internal URL can reach the browser.
 
 | Path | What it holds |
 | --- | --- |
-| `src/app/` | Routes: home, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, and the two API routes. |
+| `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
+| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the two API routes, and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. |
 | `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form, the age gate. |
-| `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the catalogue mapping, the REST client. |
-| `src/lib/` | Framework-free helpers: variation resolution and the shared modal behaviour. |
-| `src/stores/` | The persisted Zustand cart. |
+| `src/components/product/` | Everything that describes one product: the card, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
+| `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
+| `src/lib/` | Framework-free helpers: variation resolution, the shared modal behaviour, the shop sort, and `site.ts` (the absolute origin metadata needs). |
+| `src/stores/` | The persisted Zustand cart, and the mobile nav's open state. |
 | `public/products/` | The catalogue's nine product images, committed so the deployed site does not depend on WordPress being reachable. |
 
-## Three things worth knowing before changing this app
+## Four things worth knowing before changing this app
 
 - **Every route is dynamic on purpose, declared once in `src/app/layout.tsx`.** The header reads the
   catalogue for its navigation, so every page touches WordPress, and nothing may be fetched during
@@ -61,3 +63,25 @@ internal URL can reach the browser.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
   order is created server-side with a credential the browser never sees. Nothing is charged, shipped
   or emailed.
+- **There is no root `loading.tsx`, and adding one is a bug, not a nicety.** Measured by toggling
+  only that file: with it, `/product/does-not-exist` and `/shop/does-not-exist` answer **200** five
+  times out of five; without it, **404** five times out of five. A `loading.tsx` opens a Suspense
+  boundary around the whole page, so Next commits to a 200 before the body — where `notFound()`
+  throws — has run. A skeleton has to be an explicit `<Suspense>` inside a page. The table and the
+  reasoning are in `UI-STANDARDS.md`.
+
+## Frontend commands
+
+The storefront is a second app in this repository, and none of it is a `wpdev` command. From this
+directory:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server on 3000, falling back to 3001 — read the port it prints. |
+| `npm run build` | Production build. Safe with WordPress stopped; nothing is fetched at build time. |
+| `npm run start` | Serves the production build. |
+| `npm run lint` | ESLint over the app. |
+| `npx tsc --noEmit` | Type check only. |
+
+After a production build, a running `next dev` serves the prerendered output for statically rendered
+routes and stays stale through a dev-server restart. `rm -rf .next` is what clears it.

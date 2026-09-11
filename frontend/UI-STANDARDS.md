@@ -201,13 +201,41 @@ keyboard, is struck through, and is explained by a notice that names the working
   on every route.
 - **Zoom and reflow** to 320px wide without loss of content or function.
 
-## Reduced motion
+## Motion and reduced motion
 
 A transition may never be the thing that makes a change understandable. Every animation carries a
-`motion-reduce:` neighbour and the state still changes, it just stops moving: the drawer and the nav
-appear instead of sliding, the card image does not zoom, and the skeleton does not pulse.
+`motion-reduce:` neighbour and the state still changes, it just stops moving.
 
-`transition-colors` and other pure colour transitions are exempt — they are not motion.
+There are exactly **three** things in this app that move, and each is guarded. `grep -rn
+"animate-\|duration-" src/` is the check, and every hit that is not a pure colour transition is in
+this table:
+
+| What moves | Duration / easing | Guard |
+| --- | --- | --- |
+| Cart drawer panel slides in | `300ms`, `ease-out` | `motion-reduce:transition-none` |
+| Cart drawer backdrop fades | `300ms`, default easing (`cubic-bezier(0.4, 0, 0.2, 1)`) | `motion-reduce:transition-none` |
+| Mobile nav panel slides in | `300ms`, `ease-out` | `motion-reduce:transition-none` |
+| Mobile nav backdrop fades | `300ms`, default easing | `motion-reduce:transition-none` |
+| Product card image zooms on hover | `500ms`, default easing | `motion-safe:group-hover:scale-105` **plus** `motion-reduce:duration-0` |
+
+Note the shape of the card's guard: the zoom is written as `motion-safe:` so there is no transform
+to animate at all under reduced motion, and `duration-0` is kept alongside it because the
+acceptance check is a grep for a `motion-reduce:` neighbour on anything with a `duration-`. The two
+together mean the image is simply still.
+
+**The skeleton is gone, so there is nothing to pulse.** T7 removed `app/loading.tsx` because it cost
+every `notFound()` route its 404 status (see below). A loading state, if it is ever wanted, has to
+be an explicit `<Suspense>` inside a page — and it has to carry the same `motion-reduce:` treatment
+when it arrives.
+
+`transition` on its own — a colour, border or opacity change with no movement — is exempt: that is
+not motion, and a link that stops changing colour under reduced motion would be worse, not better.
+The utilities in use are `transition-colors`-shaped even when written as the bare `transition`.
+
+**Nothing becomes usable only after a transition finishes.** Both overlays are always mounted: the
+drawer and the nav are hidden with `inert` and `pointer-events-none`, applied in the same commit
+that changes `translate`, so a reduced-motion (or interrupted) animation cannot leave a panel
+unreachable or a closed panel clickable.
 
 ## There is no root `loading.tsx`, and adding one would be a bug
 
