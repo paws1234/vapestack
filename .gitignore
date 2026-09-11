@@ -1,0 +1,28 @@
+# Secrets and machine-specific config; never committed.
+.env
+.mcp.json
+
+# Holds the Elementor MCP server's Basic credential in the clear. It is not a placeholder and not
+# a hash, it is the credential itself, so it stays out of the repository.
+.elementor-mcp-credential
+
+# Claude Code keeps its per-project approvals here.
+.claude/settings.local.json
+
+# WordPress runtime state - not project code.
+wp-content/uploads/
+wp-content/upgrade/
+wp-content/cache/
+wp-content/debug.log
+*.log
+
+# The storefront is a real app built in place, so keep its dependencies and build output out of
+# version control. frontend/.gitignore covers the same ground for its own directory.
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*
+!frontend/.env.local.example
+
+.DS_Store
+Thumbs.db

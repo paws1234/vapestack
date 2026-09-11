@@ -1,0 +1,30 @@
+{
+	"inputs": [
+		{
+			"type": "promptString",
+			"id": "elementorMcpBasic",
+			"description": "Elementor MCP credentials (run: wpdev creds)",
+			"password": true
+		}
+	],
+	"servers": {
+		"elementor": {
+			"type": "http",
+			"url": "http://localhost:8889/wp-json/elementor/mcp",
+			"headers": {
+				"Authorization": "Basic ${input:elementorMcpBasic}"
+			}
+		},
+		"wordpress": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@automattic/mcp-wordpress-remote" ],
+			"envFile": "${workspaceFolder}/.env"
+		},
+		"playwright": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@playwright/mcp@latest" ]
+		}
+	}
+}

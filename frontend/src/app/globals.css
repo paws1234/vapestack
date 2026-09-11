@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Tailwind v4 turns each of these into utilities, so `bg-ink-950`,
+ * `text-neon-400` and `border-ink-700` all exist without a config file.
+ */
+@theme {
+  /* Surfaces and text, darkest first. */
+  --color-ink-950: #07080c;
+  --color-ink-900: #0b0d13;
+  --color-ink-800: #12151d;
+  --color-ink-700: #1d212c;
+  --color-ink-400: #7c8598;
+  --color-ink-200: #c9cfdb;
+  --color-ink-50: #f5f7fb;
+
+  /* Lime for actions, volt for highlights. */
+  --color-neon-300: #d4ff7a;
+  --color-neon-400: #b6ff3d;
+  --color-neon-500: #93e01a;
+  --color-volt-400: #35e6ff;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-ink-200);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-neon-400);
+    color: var(--color-ink-950);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-neon-400);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * The age gate's pre-paint switch.
+ *
+ * The inline script in `layout.tsx` sets `data-age-gate="off"` on <html> for a visitor who has
+ * already confirmed, so the shop is never visible behind the gate for a returning visitor.
+ *
+ * Deliberately outside `@layer base`: Tailwind's utilities come after that layer in the cascade,
+ * where `display: flex` on the gate would beat a layered `display: none` whatever the
+ * specificity. Unlayered rules win over every layer.
+ */
+html[data-age-gate="off"] [data-age-gate-root] {
+  display: none;
+}
