@@ -63,8 +63,10 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
   },
   /*
-    The icon is the one `create-next-app` left in `app/favicon.ico`. Naming it explicitly rather
-    than relying on the file convention keeps it in the metadata where it can be seen.
+    The tab icon is the brand mark, cut square out of `resources/image.jpg` and written to
+    `app/favicon.ico` by `resources/make-icons.mjs` — 16, 32 and 48 pixel frames in one file, which
+    is why no size is named here. Mentioning it explicitly rather than relying on the file
+    convention keeps it in the metadata where it can be seen.
   */
   icons: {
     icon: [{ url: "/favicon.ico", sizes: "any" }],

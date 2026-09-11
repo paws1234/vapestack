@@ -42,6 +42,7 @@ rule. It is the file to read before changing anything on screen.
 | `frontend/` | The Next.js storefront. Its own README covers the app itself. |
 | `wp-content/themes/vapestack-theme/` | The project's WordPress code: `tools/import-source-products.php` imports the fixture in `tools/data/`, and `tools/seed-products.php` is the original six-product demo catalogue, no longer loaded. |
 | `tools/` | Host-side scripts: plugin install, the source fetcher, tunnel. |
+| `resources/` | Brand assets: the supplied artwork and the generator that turns it into the site's tab icon. Nothing here is served directly. |
 | `docs/` | The original brief, setup notes, and the frozen GraphQL contract. |
 | `.claude/` | The plan and its task list — the record of what was built and how it was verified. |
 
