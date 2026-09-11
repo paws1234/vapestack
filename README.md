@@ -92,4 +92,10 @@ it; running `vercel` inside `frontend/` uploads that directory as the root and f
 - `docs/headless-contract.md` — the GraphQL shape the storefront relies on, with the traps that
   were proved against the live endpoint.
 - `docs/SETUP.md` — how the `wpdev` kit wires WordPress and the MCP servers together.
+- `frontend/UI-STANDARDS.md` — the measured UI record: contrast ratios, type and spacing rhythm,
+  control states, the a11y checklist and the reduced-motion rule.
+- `docs/ui-ux-plan.md` / `docs/ui-ux-tasks.md` — the storefront polish pass, finished, with the
+  evidence for every task.
+- `docs/features-plan.md` — the next phase: cart hold countdown, cart reward ladder, a simulated
+  payment sandbox, a post-purchase timeline and client-side search. Planned, not built.
 - `CLAUDE.md` — the working notes for an AI agent in this repository.

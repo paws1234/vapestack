@@ -41,10 +41,10 @@ internal URL can reach the browser.
 | --- | --- |
 | `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
 | `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the two API routes, and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. |
-| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form, the age gate. |
+| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
 | `src/components/product/` | Everything that describes one product: the card, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
 | `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
-| `src/lib/` | Framework-free helpers: variation resolution, the shared modal behaviour, the shop sort, and `site.ts` (the absolute origin metadata needs). |
+| `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), and the spend ladder (`cart-rewards.ts`). |
 | `src/stores/` | The persisted Zustand cart, and the mobile nav's open state. |
 | `public/products/` | The catalogue's nine product images, committed so the deployed site does not depend on WordPress being reachable. |
 
@@ -62,7 +62,9 @@ internal URL can reach the browser.
   route.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
   order is created server-side with a credential the browser never sees. Nothing is charged, shipped
-  or emailed.
+  or emailed. The cart also holds its lines for ten minutes — a **simulated** reservation, stored as
+  a deadline in `stores/cart.ts` and ticked only while the drawer is open. Nothing is really held
+  back, and the copy says so.
 - **There is no root `loading.tsx`, and adding one is a bug, not a nicety.** Measured by toggling
   only that file: with it, `/product/does-not-exist` and `/shop/does-not-exist` answer **200** five
   times out of five; without it, **404** five times out of five. A `loading.tsx` opens a Suspense

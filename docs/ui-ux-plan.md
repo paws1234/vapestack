@@ -222,3 +222,18 @@ Paths are relative to the project root (`vapestack/`).
 - **The mobile nav is a slide-over panel**, matching the cart drawer, not a full-screen takeover.
 - **No per-product OG images.** Generating them would mean fetching or embedding the catalogue at
   build time, which the dynamic-routes decision forbids.
+
+## Further considerations
+
+This plan is finished (T1–T15, all verified). Two things belong here rather than in it:
+
+- **The storefront's functional features continue in `docs/features-plan.md`** — cart hold
+  countdown, cart reward ladder, a payment-method sandbox, a post-purchase timeline, and the
+  client-side search this plan deliberately excluded. Written 2026-09-11; turn it into tasks with
+  `plan docs/features-plan.md`.
+- **The sweep's one finding, carried forward.** `docs/ui-ux-tasks.md` T15 records that Done-when
+  item 7 is false: an empty *range* cannot show a designed empty state, because `getCatalogue()`
+  derives the ranges from the products, so emptying a range deletes it and `/shop/<range>` answers
+  404. The whole-shop empty state, on the shop and on the home page, is the reachable one. Changing
+  that would mean deriving the ranges from WordPress's category taxonomy instead of from the
+  products — a data-layer change, not a UI one, and not asked for yet.

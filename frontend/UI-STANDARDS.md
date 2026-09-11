@@ -177,11 +177,61 @@ the URL back to `name`, and the grid follows it).
 Sold-out is not disabled. An option that is unavailable stays clickable and stays reachable by
 keyboard, is struck through, and is explained by a notice that names the working alternative.
 
+### The cart's hold is a clock, and clocks are a hydration trap
+
+The drawer holds the cart for ten minutes and says so. Three rules came out of building it, and
+they apply to any future feature with a clock in it:
+
+1. **Store a deadline, never a countdown.** `expiresAt` in `stores/cart.ts` is an absolute time.
+   The remaining time is derived on each tick, so a tab the browser has throttled catches up
+   instead of drifting behind by however long it was in the background.
+2. **The tick runs only while somebody is looking.** `lib/use-live-hold.ts` starts one interval on
+the first subscriber and clears it when the last leaves; the drawer subscribes only while it is
+   **open and has lines in it**. Because the state is a stored deadline, a closed drawer loses
+   nothing by not watching — reopening re-reads it and shows the truth, expired included.
+3. **`getServerSnapshot` is what keeps hydration quiet.** React uses it for the server render *and*
+   for the hydration render, so the served HTML and the first client render agree on "no clock, no
+   hold to show" whatever the real clock says. That is also what lets the module hold a real
+   `Date.now()` without a mismatch. A countdown computed during render would be the bug
+   `skipHydration` exists to prevent, in a different disguise.
+
+**A per-second countdown is not a live region.** A number that changes every second is noise to a
+screen reader, and this feature has exactly one transition worth announcing — the hold running
+out. That transition goes through a `role="status"` element that is already in the DOM while the
+hold is merely counting, so the change is announced rather than silently mounted. The three states
+(`counting`, `expired`, none) are also exposed as `data-cart-hold` so a test reads a state instead
+of guessing from the text.
+
+Nothing in the hold animates, so it carries no `motion-reduce:` neighbour — the rule is about
+animations, not about states that change.
+
+### A ladder is a pure function, and its track is a boundary
+
+The drawer's spend ladder is `rewardProgress(subtotal)` in `lib/cart-rewards.ts`: a number in, a
+state out, no store and no state of its own. Anything derived from the cart belongs there —
+putting it in the store would be derived state in a store that deliberately has none.
+
+Two things about it are rules rather than choices:
+
+- **The track uses `--color-line`, not a decorative token.** The *extent* of a progress bar is the
+  information, so the bar has to be perceivable: `ink-800` on `ink-900` is 1.06:1 and a visitor
+  cannot see where the bar starts. The fill is `neon-400`, well clear of the track.
+- **The claim and its disclaimer live in the same block.** This shop can unlock nothing — it takes
+  no payment and ships nothing — so the ladder carries a `Simulation` pill **and** a sentence
+  saying so. A pill alone is a label; the sentence is what a visitor actually reads. (F4 has the
+  same problem for a tracking timeline, and gets the same answer.)
+
 ## Accessibility checklist
 
 - **Skip link first.** `SkipLink` is the first focusable element in `<body>`; it targets
   `#main-content`, which is `<main>` with `tabIndex={-1}` so focus actually moves.
 - **One `h1` per page**, no skipped levels. Captions and eyebrows are not headings.
+- **Announce the transition, not the value.** A live region holds the thing worth interrupting
+  for — a hold running out, a rung of the ladder being reached — never a number that moves on its
+  own. Both live regions here are `role="status"` elements that are already in the DOM before the
+  change, so the change announces instead of mounting silently. Text that does not change is not
+  re-announced, which is how "once per crossing" is achieved without a timer or a stored
+  previous value.
 - **`aria-current="page"`** on the nav link and the chip for the range being viewed.
 - **`aria-live="polite"`** for anything that changes without navigation: the chosen price and
   availability, the cart count, the shop result count.

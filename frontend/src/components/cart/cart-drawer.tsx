@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { CartHoldBanner } from "@/components/cart/cart-hold-banner";
 import { CartLine } from "@/components/cart/cart-line";
+import { RewardProgress } from "@/components/cart/reward-progress";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
 import { useModalBehaviour } from "@/lib/modal-behaviour";
+import { useLiveHold } from "@/lib/use-live-hold";
 import { cartSubtotal, useCartStore } from "@/stores/cart";
 
 /**
@@ -22,8 +25,10 @@ import { cartSubtotal, useCartStore } from "@/stores/cart";
  */
 export function CartDrawer() {
   const items = useCartStore((state) => state.items);
+  const expiresAt = useCartStore((state) => state.expiresAt);
   const isOpen = useCartStore((state) => state.isOpen);
   const close = useCartStore((state) => state.close);
+  const extendHold = useCartStore((state) => state.extendHold);
   const panelRef = useRef<HTMLDivElement>(null);
 
   /*
@@ -39,6 +44,14 @@ export function CartDrawer() {
 
   const subtotal = cartSubtotal(items);
   const isEmpty = 0 === items.length;
+
+  /*
+    The clock runs only while the drawer is open with lines in it. The hold is a stored deadline,
+    so a closed drawer loses nothing by not watching it - reopening reads the deadline again and
+    shows the truth immediately, expired included.
+  */
+  const hold = useLiveHold(expiresAt, isOpen && !isEmpty);
+  const holdExpired = "expired" === hold.status;
 
   return (
     <div className={`fixed inset-0 z-50 ${isOpen ? "" : "pointer-events-none"}`} aria-hidden={!isOpen}>
@@ -72,6 +85,12 @@ export function CartDrawer() {
           </Button>
         </div>
 
+        {isEmpty || "none" === hold.status ? null : (
+          <div className="px-5 pt-4">
+            <CartHoldBanner hold={hold} onExtend={extendHold} />
+          </div>
+        )}
+
         {isEmpty ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 text-center">
             <p className="text-ink-400">Nothing in the cart yet.</p>
@@ -88,7 +107,9 @@ export function CartDrawer() {
             </ul>
 
             <div className="space-y-3 border-t border-ink-800 px-5 py-5">
-              <div className="flex items-center justify-between gap-4">
+                <RewardProgress subtotal={subtotal} />
+
+                <div className="flex items-center justify-between gap-4 border-t border-ink-800 pt-3">
                 <span className="text-sm text-ink-400">Subtotal</span>
                 <Price min={subtotal} max={subtotal} className="text-lg font-semibold text-neon-400" />
               </div>
@@ -98,13 +119,25 @@ export function CartDrawer() {
                 that is created, not this total.
               </p>
 
-              <Link
-                href="/checkout"
-                onClick={close}
-                className={`${buttonStyles("primary", "md")} w-full`}
-              >
-                Checkout
-              </Link>
+                {/*
+                Not offered while the hold has run out. The banner above says why and carries the
+                one action that changes it, so the space where the button was explains itself
+                rather than simply going blank.
+              */}
+                {holdExpired ? (
+                  <p className="text-xs text-ink-400">
+                    Extend the hold above to check out. Your lines are still here, and nothing has
+                    been charged.
+                  </p>
+                ) : (
+                    <Link
+                      href="/checkout"
+                      onClick={close}
+                      className={`${buttonStyles("primary", "md")} w-full`}
+                    >
+                      Checkout
+                    </Link>
+                )}
             </div>
           </>
         )}

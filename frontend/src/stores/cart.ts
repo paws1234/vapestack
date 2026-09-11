@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { holdDeadline } from "@/lib/cart-hold";
 import type { ProductImage } from "@/lib/wp/types";
 
 /**
@@ -8,7 +9,7 @@ import type { ProductImage } from "@/lib/wp/types";
  * Client-only by design. The order the checkout API creates is priced by WooCommerce, so every
  * number in here is for display and none of it is trusted by the server.
  *
- * Two details matter more than they look:
+ * Three details matter more than they look:
  *
  * 1. `skipHydration`. A synchronous `localStorage` storage is read while the store is created,
  *    so a returning visitor's items would be in the very first client render while the
@@ -17,6 +18,10 @@ import type { ProductImage } from "@/lib/wp/types";
  * 2. Counts and totals are plain functions over `items`, never stored state. Zustand v5 dropped
  *    the default shallow equality, so a selector that builds a new array or object per call
  *    re-renders forever ("getSnapshot should be cached").
+ * 3. `expiresAt` is the only thing here that will change on its own, and it is stored as a
+ *    **deadline** rather than as a countdown. The clock that reads it lives in
+ *    `lib/use-live-hold.ts` and only runs while the drawer is open: a stored deadline cannot
+ *    drift when a background tab is throttled, and nothing ticks for a cart nobody is watching.
  */
 
 /** One line in the cart: enough to render it, plus the ids the checkout API needs. */
@@ -94,6 +99,15 @@ export function cartSubtotal(items: CartItem[]): number {
 
 type CartState = {
   items: CartItem[];
+  /**
+   * When the simulated hold on these lines runs out, or null when there is no hold.
+   *
+   * One deadline for the whole cart rather than one per line: a line added at 09:00 to a cart
+   * holding since 08:55 renews the lot, which is the only rule that stays explicable. A cart
+   * restored from storage written before this existed has null here and simply has no hold —
+   * nothing is invented on load, and the next addition starts one.
+   */
+  expiresAt: number | null;
   /** Whether the drawer is showing. Never persisted. */
   isOpen: boolean;
   /**
@@ -121,6 +135,8 @@ type CartState = {
   setQuantity: (key: string, quantity: number) => void;
   /** Empties the cart. Called once an order exists, never before. */
   clear: () => void;
+  /** Starts a fresh hold from now, which is what the expired banner's button does. */
+  extendHold: () => void;
   /** Shows the drawer. */
   open: () => void;
   /** Hides the drawer. */
@@ -131,16 +147,20 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       items: [],
+      expiresAt: null,
       isOpen: false,
 
       add: (item, quantity = 1) =>
         set((state) => {
           const key = cartKey(item.productId, item.variationId);
           const existing = state.items.find((line) => line.key === key);
+          /* Adding anything renews the whole hold, including when it had already run out. */
+          const expiresAt = holdDeadline(Date.now());
 
           if (!existing) {
             return {
               items: [...state.items, { ...item, key, quantity: clampQuantity(quantity) }],
+              expiresAt,
             };
           }
 
@@ -148,10 +168,20 @@ export const useCartStore = create<CartState>()(
             items: state.items.map((line) =>
               line.key === key ? { ...line, quantity: clampQuantity(line.quantity + quantity) } : line,
             ),
+            expiresAt,
           };
         }),
 
-      remove: (key) => set((state) => ({ items: state.items.filter((line) => line.key !== key) })),
+      remove: (key) =>
+        set((state) => {
+          const items = state.items.filter((line) => line.key !== key);
+
+          return {
+            items,
+            /* A hold over nothing is not a hold, so dropping the last line ends it. */
+            expiresAt: 0 === items.length ? null : state.expiresAt,
+          };
+        }),
 
       setQuantity: (key, quantity) =>
         set((state) => ({
@@ -160,7 +190,9 @@ export const useCartStore = create<CartState>()(
           ),
         })),
 
-      clear: () => set({ items: [] }),
+      clear: () => set({ items: [], expiresAt: null }),
+
+      extendHold: () => set({ expiresAt: holdDeadline(Date.now()) }),
 
       open: () => set({ isOpen: true }),
 
@@ -172,11 +204,14 @@ export const useCartStore = create<CartState>()(
         Bumped when `CartItem` changes shape. It is also the cheap way to drop carts holding
         variation ids that no longer exist, which happens whenever the catalogue is reseeded
         from scratch because the seeder recreates the products with new ids.
+
+        Not bumped for `expiresAt`: adding a key does not change the shape of a line, and a cart
+        restored without one keeps the null default instead of being thrown away.
       */
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      /* Only the lines are worth keeping: a reload must not reopen a drawer. */
-      partialize: (state) => ({ items: state.items }),
+      /* Only what belongs to the visitor: a reload must not reopen a drawer. */
+      partialize: (state) => ({ items: state.items, expiresAt: state.expiresAt }),
       skipHydration: true,
     },
   ),
