@@ -5,6 +5,7 @@ import { CartDrawer } from "@/components/cart/cart-drawer";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { ShopOfflineStrip } from "@/components/layout/shop-offline-strip";
 import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
 import { getCatalogue } from "@/lib/wp/catalog";
@@ -73,6 +74,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: AGE_GATE_SCRIPT }} />
 
         <Header />
+        {/*
+          Above `<main>` and inside the layout, so every route gets it: the strip says the shop
+          behind the site is offline, which is the one thing a visitor cannot work out from a page
+          that still renders. It renders nothing when WordPress is answering.
+        */}
+        <ShopOfflineStrip />
         {/*
           `id` and `tabIndex` together are what the skip link needs: the id is the target, and the
           tab index is what moves focus there. Without it the page would scroll and leave focus on

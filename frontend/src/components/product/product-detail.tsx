@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { PhotoTile } from "@/components/product/photo-tile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Price } from "@/components/ui/price";
@@ -114,6 +115,8 @@ export function ProductDetail({ product }: { product: Product }) {
   return (
     <div className="mt-6 grid gap-10 lg:grid-cols-2">
       <div className="relative aspect-square overflow-hidden rounded-3xl border border-ink-800 bg-ink-900">
+        <PhotoTile seed={product.id} />
+
         {image ? (
           <Image
             src={image.url}

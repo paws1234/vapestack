@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { PhotoTile } from "@/components/product/photo-tile";
 import { Price } from "@/components/ui/price";
 import { MAX_QUANTITY, useCartStore, type CartItem } from "@/stores/cart";
 
@@ -30,6 +31,8 @@ export function CartLine({ line }: { line: CartItem }) {
   return (
     <li className="flex gap-4 py-5">
       <div className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-ink-800 bg-ink-950">
+        <PhotoTile seed={line.productId} />
+
         {line.image ? (
           <Image
             src={line.image.url}

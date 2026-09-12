@@ -227,6 +227,48 @@ first eleven, ten were square and fitted the tile exactly and the eleventh was 3
 `object-cover` threw away **26%** of its long edge — which on a product photograph means cutting the
 product. Nothing is cropped, so nothing has to be checked for what it cut off.
 
+**Every product photograph sits on a tinted panel, and the panel is the fallback.**
+`components/product/photo-tile.tsx` renders it, `lib/product-image.ts` decides its colour from the
+product's own id (`hsl` tint at 26% saturation over `ink-900`, so a tint of this palette rather than
+a swatch), and all three surfaces use it — the grid, the product page, the cart line.
+
+- **It is a backdrop, not a spinner.** The tile is a server component with no state: it is in the
+  DOM from the first byte, the photograph paints over it, and there is no load event to miss, no
+  hydration race and no client JavaScript for a decorative element. `data-photo-tile` is the hook a
+  measurement script uses.
+- **It is what a visitor sees when a photograph cannot be fetched** — the WordPress tunnel down, an
+  optimiser refusing the hostname of a tunnel that has since restarted (measured: current host
+  `200 image/jpeg`, previous host **`400`**), or a product the catalogue has no photo for, which
+  used to render as an empty well. A card can no longer render as a hole.
+- **Alt text decides whether the failure is silent.** Grid cards use `alt=""` because the link
+  already names the product, so a blocked image shows nothing but the tile. The product page and the
+  cart line carry real alt text, so a browser draws that text over the tile instead — which is
+  Chrome's own behaviour for a missing image, and is left alone.
+
+**When the shop behind the site is gone, the page says so.**
+`components/layout/shop-offline-strip.tsx` renders one line above `<main>` on every route, and only
+when `lib/wp/liveness.ts` reports WordPress unreachable. It exists because the catalogue's
+five-minute cache keeps a closed tunnel looking like a working shop: the pages still list and price
+290 products, so only the photographs and the checkout betray it, and neither says why.
+
+- **The strip is the summary; `OfflineNotice` is the detail.** The strip rides above pages that are
+  still rendering from the last successful read. The notice replaces a page whose own read failed.
+  On a route never fetched before the tunnel closed both appear, which is deliberate.
+- **A cached liveness check answers the wrong question.** The first version reused its answer for ten
+  seconds through Next's data cache and was wrong in exactly the way it was written to detect: with
+  WordPress stopped it kept answering *reachable* for minutes, because a stale entry whose background
+  revalidation fails is served rather than replaced — the same trap the catalogue's own cache sets.
+  The answer now lives in a module-level value with a `Date.now()` TTL, which a **failed** probe
+  overwrites like any other, so it cannot stick. Measured before and after: no strip at all while
+  WordPress was down (bug), strip present on every route within one TTL (fixed).
+- **What the check costs, measured:** ~90ms on the one view that asks — about once every ten seconds,
+  per server instance — and 15–26ms on the views that do not, against ~15ms before it existed. It is
+  on the render path, so it is a cost worth knowing; `after()`-refreshed status would move it off the
+  response but would show the strip one navigation late.
+- **`GET`, not `HEAD`.** This site's GraphQL endpoint answers HEAD with **500** and GET with
+  `{"data":{"__typename":"RootQuery"}}` in 137ms, so a HEAD probe would report the shop down
+  while it is up.
+
 ### The cart's hold is a clock, and clocks are a hydration trap
 
 The drawer holds the cart for ten minutes and says so. Three rules came out of building it, and

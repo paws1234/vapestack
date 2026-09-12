@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { PhotoTile } from "@/components/product/photo-tile";
 import { Badge } from "@/components/ui/badge";
 import { Price } from "@/components/ui/price";
 import type { Product } from "@/lib/wp/types";
@@ -29,6 +30,12 @@ export function ProductCard({ product, eager = false }: { product: Product; eage
       className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-ink-900 transition hover:border-neon-400/60"
     >
       <div className="relative aspect-square bg-ink-800">
+        {/*
+          The tile first, so the photograph paints over it — and so a photograph that never
+          arrives leaves a designed panel rather than a hole. See `photo-tile.tsx`.
+        */}
+        <PhotoTile seed={product.id} />
+
         {product.image ? (
           <Image
             src={product.image.url}
