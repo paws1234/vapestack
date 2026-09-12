@@ -101,6 +101,26 @@ function paymentFailed(what: string, error: unknown): Response {
 }
 
 /**
+ * Answers when a card was asked for and WooCommerce could not be reached.
+ *
+ * Deliberately not demo mode. A card needs an amount, the amount has to be the one WooCommerce
+ * prices, and without WooCommerce there is no order to price - so there is nothing a card payment
+ * could be about. The two simulated methods still take the demo receipt, because for them the
+ * receipt is the whole record; a receipt saying "Stripe (test mode)" for a payment that was never
+ * attempted would be exactly the kind of claim this shop does not make.
+ */
+function cardsNeedWooCommerce(): Response {
+  return Response.json(
+    {
+      error:
+        "Card payment needs the shop's WooCommerce, which cannot be reached right now, so nothing " +
+        "was charged. Try QR payment or cash on delivery, or come back in a moment.",
+    },
+    { status: 503 },
+  );
+}
+
+/**
  * Answers when WordPress could not be reached at all.
  *
  * No order exists and none can: this is a demo whose WooCommerce lives behind a tunnel that is only
@@ -315,7 +335,7 @@ export async function POST(request: Request) {
     reason = await unbuyable(payload.items);
   } catch (error) {
     if (error instanceof UpstreamUnavailableError) {
-      return demo();
+      return "stripe" === payload.payment ? cardsNeedWooCommerce() : demo();
     }
 
     return upstream("the catalogue read", error);
@@ -348,7 +368,7 @@ export async function POST(request: Request) {
      * relying on it to fail first.
      */
     if (error instanceof UpstreamUnavailableError) {
-      return demo();
+      return "stripe" === payload.payment ? cardsNeedWooCommerce() : demo();
     }
 
     return upstream("order creation", error);

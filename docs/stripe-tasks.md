@@ -656,7 +656,23 @@ labelled as simulations.
 
 ### S9 — The deployment: Vercel variables and a webhook endpoint
 
-- [ ] Vercel variables set; webhook endpoint registered; test payment on the deployment
+- [x] Vercel variables set; webhook endpoint registered; test payment on the deployment
+
+> verified: endpoint **`we_1UEfhgDsJmFxD5A1TFkkY7jY`** created against
+> `https://vapestack-paws1234s-projects.vercel.app/api/stripe/webhook`, status **enabled**, events
+> `payment_intent.succeeded` + `payment_intent.payment_failed`. `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+> added as **Config**, `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as **Secrets** — all three
+> confirmed by `vercel env ls production`, every value piped in rather than passed as an argument, so
+> none was printed. Deployed with `VERCEL=<cached vercel> bash tools/tunnel.sh` →
+> `vapestack-7zy6mj3be-paws1234s-projects.vercel.app`, tunnel
+> `remaining-strain-startup-dis.trycloudflare.com`, **17/17 warmed routes 200**. A real test payment
+> from the public URL (`/tmp/s9/deployed.cjs`, `4242 4242 4242 4242`): `/checkout/success/**1061**`,
+> `h1` **Paid**, cart emptied, `anyBodyHasCardNumber: **false**`, 0 console errors. WooCommerce:
+> `status=processing paid=true txn=pi_3UEfjyDsJmFxD5A11dTlEckV total=31.99`, `date_paid` set. Stripe:
+> exactly one endpoint, enabled, and the event behind that payment
+> (`evt_3UEfjyDsJmFxD5A112AnpIza`) reports `pending_webhooks: **0**` — every endpoint notified. The
+> deployed route's own behaviour: a validly signed delivery → **200** `{"received":true}`, a forged
+> one → **400 `Invalid signature.`**
 
 **Goal** — The deployed site takes a test-mode payment, with the webhook endpoint registered against
 it.
@@ -700,7 +716,26 @@ the endpoint's delivery log; and a second payment after a redeploy.
 
 ### S10 — The sweep
 
-- [ ] Build, four browser paths, offline, deployed — all proved
+- [x] Build, four browser paths, offline, deployed — all proved
+
+> verified: `rm -rf frontend/.next` then `npm run build` **with WordPress stopped** — clean (4 static
+> pages, every route listed), after `tsc` and `lint` came back clean. Offline degradation against a
+> **production** build (`next start`) with WordPress down (`/tmp/s10/offline.cjs`): a **card**
+> checkout stays on `/checkout`, shows *"Card payment needs the shop's WooCommerce, which cannot be
+> reached right now, so nothing was charged…"*, keeps its cart line and writes **no** demo receipt;
+> **QR** still reaches `/checkout/success/demo` with its *"Nothing was ordered"* receipt; `/shop`
+> answers 200 with the offline notice.
+>
+> **A bug this task found and fixed:** the card path used to fall into demo mode whenever
+> WooCommerce was unreachable, writing a receipt that named *Stripe (test mode)* for a payment that
+> was never attempted. The route now answers **503** for a card (`cardsNeedWooCommerce()`), and only
+> the two simulated methods keep the receipt.
+>
+> The rest of the plan's done-when: the four browser paths are in S5's evidence (approve, decline,
+> authentication, and the pre-webhook *awaiting payment* state read on order 1055), the deployed
+> payment is S9's, and the one item **not** closed is the *Link* autofill block Stripe's element
+> offers above the card fields — a card surface, not a fourth method, recorded as a follow-up above.
+> WordPress restored afterwards: `wpdev smoke` **10/10**.
 
 **Goal** — Everything the plan's §*Done when* claims is shown true, once, in one place.
 
