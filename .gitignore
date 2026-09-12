@@ -16,6 +16,12 @@ wp-content/cache/
 wp-content/debug.log
 *.log
 
+# Third-party plugin code. `wpengine/wp-graphql-content-blocks` is what turns Gutenberg blocks into
+# GraphQL data; it is pinned and installed by `tools/install-blocks-plugin.sh` rather than vendored
+# here, because 63 files of somebody else's PHP are not this project's source. The directory is
+# bind-mounted into the container, so a recreate keeps it, and the script reproduces it on a clone.
+wp-content/plugins/wp-graphql-content-blocks/
+
 # tools/tunnel.sh keeps the quick tunnel's pid, log and hostname here. Machine-specific and
 # regenerated on every start, so it is never committed.
 .tunnel/

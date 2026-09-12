@@ -38,6 +38,7 @@ x-wordpress-volumes: &wordpress-volumes
     # Project code and uploads, so the agent can read and write them directly.
     - ./wp-content/themes/${PROJECT_THEME}:/var/www/html/wp-content/themes/${PROJECT_THEME}
     - ./wp-content/uploads:/var/www/html/wp-content/uploads
+    - ./wp-content/plugins/wp-graphql-content-blocks:/var/www/html/wp-content/plugins/wp-graphql-content-blocks
     # wpdev:extra-mounts
 
 services:
