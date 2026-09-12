@@ -76,8 +76,8 @@ export function RewardProgress({ subtotal }: { subtotal: number }) {
       </div>
 
       <p className="text-xs leading-relaxed text-ink-400">
-        Nothing is really unlocked: this is a demonstration of a spend ladder, and the shop takes
-        no payment and ships nothing.
+        Nothing is really unlocked: this is a demonstration of a spend ladder. The shop ships
+        nothing, so a tier is a picture of a promise rather than a promise.
       </p>
     </div>
   );

@@ -38,7 +38,11 @@ export default function AboutPage() {
       <h2>What is real and what is not</h2>
       <ul>
         <li>The catalogue is real, and so are the orders the checkout writes.</li>
-        <li>No payment is ever taken, and no payment provider is connected.</li>
+        <li>
+          A card is taken through Stripe in <strong>test mode</strong>: the payment flow is real and
+          the money is not. No real card is charged, and the page tells you which test card to use.
+        </li>
+        <li>The other two payment methods are simulations, and say so where they are chosen.</li>
         <li>Nothing ships, and no order email is sent — not even a confirmation.</li>
         <li>The products are invented, and the images are generated placeholders.</li>
       </ul>

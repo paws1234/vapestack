@@ -327,11 +327,50 @@ and otherwise falls through to OAuth 1.0a, which needs request signatures. Core'
 `WP_ENVIRONMENT_TYPE=local` in `docker-compose.yml` is what makes application passwords available
 without SSL. Proved with a 200 from `/wp-json/wc/v3/orders?per_page=1`.
 
-**Creating one.** `POST /wp-json/wc/v3/orders` with `status: "processing"`,
-`payment_method: "cod"`, `set_paid: false`, `billing` from the form, `customer_note` from the
-optional note, and `line_items: [{ product_id, variation_id?, quantity }]` — ids and quantities
-only, no prices, so WooCommerce computes every total itself. It answers the whole order; the app
-keeps `id` and `number` and returns 200 `{"id":…,"number":…}` from `POST /api/checkout`.
+**Creating one.** `POST /wp-json/wc/v3/orders` with `billing` from the form, `customer_note` from the
+optional note, `payment_method`/`payment_method_title` from the chosen method, `set_paid: false`,
+and `line_items: [{ product_id, variation_id?, quantity }]` — ids and quantities only, no prices, so
+WooCommerce computes every total itself. **`status` is the method's own truth:** a card order is
+created `"pending"` because the money has not moved yet, and the two simulated methods are created
+`"processing"` because for them there is nothing to wait for. It answers the whole order; the app
+keeps `id`, `number`, `total` and `currency` and returns 200 `{"id":…,"number":…}` from
+`POST /api/checkout`, plus `clientSecret` for a card.
+
+**Paying for one — cards only, through Stripe in test mode.** The checkout creates a Stripe
+**Payment Intent** for the order's own total, converted to cents by `lib/stripe/amount.ts` (which
+refuses a currency it does not know rather than guessing its decimal places), with
+`payment_method_types: ["card"]` and `metadata: { order_id, order_number, email }`. There is no
+`receipt_email`: this site tells visitors that no order email is sent, and Stripe would send one. The
+intent's id is written onto the order as the meta key `_vapestack_payment_intent` (exported by
+`lib/stripe/payment.ts`), which is the only path back from Stripe's side to this shop's — what a
+webhook, or a later read, follows to find the order. `POST /api/checkout` answers
+`{ id, number, total, currency, clientSecret }`; the client secret authorises exactly one payment of
+exactly one amount, and is never logged or stored. **With `STRIPE_SECRET_KEY` unset the route answers
+503 before any order is created**, so an unconfigured shop never leaves an unpayable `pending` order
+behind. Verified 2026-09-12: order 1044, total `63.98`, intent `6398` cents — the two agree because
+the intent is built from WooCommerce's number.
+
+**Updating one.** `PUT /wp-json/wc/v3/orders/<id>` with any of `status`, `set_paid`,
+`transaction_id` or `meta_data` (`updateOrder()` in `lib/wp/rest.ts`). Two uses, one story: recording
+the intent's id when the payment is started, and marking the order paid when Stripe confirms it.
+
+**Being told — the webhook.** `POST /api/stripe/webhook` takes Stripe's `payment_intent.succeeded`
+and `payment_intent.payment_failed` deliveries. The body is read **raw** and verified with
+`stripe.webhooks.constructEvent()` against `STRIPE_WEBHOOK_SECRET`: a delivery that does not verify
+is refused with **400** and changes nothing, and one naming an order this shop does not have is
+logged and answered **200** so Stripe stops retrying it. `succeeded` calls the same idempotent
+`markOrderPaid()` the read path uses, so a delivery that arrives twice — or arrives after the order
+was already reconciled — is a no-op, and a WooCommerce failure is left to throw, which answers 5xx
+and lets Stripe deliver again.
+
+**The webhook is a preference, not the only way in.** Reading an order that is still `pending` and
+carries an intent asks Stripe about it and marks it paid if Stripe says the money moved
+(`reconcileOrder()` in `lib/stripe/settle.ts`). That is what makes a lost, late or tunnel-blocked
+delivery survivable — and it is why the whole card flow can be exercised with no webhook configured
+at all. Verified 2026-09-12, with payloads signed locally by `webhooks.generateTestHeaderString`
+because no Stripe CLI is installed here: **400** with no signature, **400** with a forged one,
+**200** with the order moving `pending → processing` and `paid`, **200**/`already` for the same event
+delivered twice, **200** for an unknown intent, and **200** for a signed event naming no order.
 
 **Reading one back.** `GET /wp-json/wc/v3/orders/<id>` answers 404
 (`woocommerce_rest_shop_order_invalid_id`) for an unknown id. The app trims the order to

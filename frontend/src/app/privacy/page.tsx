@@ -62,7 +62,11 @@ export default function PrivacyPage() {
       <ul>
         <li>No analytics, no session recording, no advertising identifiers.</li>
         <li>No IP address is stored by the application.</li>
-        <li>No payment details, because no payment is ever taken.</li>
+        <li>
+          No payment details reach this site. A card is entered into Stripe&rsquo;s own fields and
+          goes to Stripe, which processes it under its own privacy policy; this site is told only
+          whether the payment succeeded. The account is in test mode, so no real card is charged.
+        </li>
         <li>No account, no password, and no profile.</li>
       </ul>
 

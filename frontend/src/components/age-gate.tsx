@@ -98,7 +98,8 @@ export function AgeGate() {
 
               <p className="mt-3 leading-relaxed text-ink-400">
                 This shop carries nicotine products and is for adults only. Vapestack is a
-                portfolio demo: nothing is really sold, no payment is taken and no order ships.
+                portfolio demo: nothing is really sold, a card runs through Stripe in test mode so
+                no real card is charged, and no order ships.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">

@@ -2,65 +2,49 @@
 
 import { QRCodeSVG } from "qrcode.react";
 
-import { CardForm } from "@/components/checkout/card-form";
-import { Badge } from "@/components/ui/badge";
-import {
-  PAYMENT_METHODS,
-  TEST_CARDS,
-  TEST_OTP,
-  paymentMethod,
-  type CardErrors,
-  type PaymentMethodId,
-} from "@/lib/payment-simulation";
+import { PAYMENT_METHODS, type PaymentMethodId } from "@/lib/payment-simulation";
 import { absoluteUrl } from "@/lib/site";
 
 /**
  * How the visitor would like to pretend to pay.
  *
- * A native radio group rather than a row of buttons: arrow keys move between the three, the group
- * is announced as one control, and a screen reader hears "Card, selected" without any ARIA of our
- * own. The radios are `sr-only` inside their own `<label>`, with the visible pill in a sibling span
- * so `peer-focus-visible:` can draw the focus ring — the same shape the product page's selectors
- * use, for the same reason.
+ * A native radio group rather than a row of buttons: arrow keys move between the two, the group is
+ * announced as one control, and a screen reader hears "QR payment, selected" without any ARIA of
+ * our own. The radios are `sr-only` inside their own `<label>`, with the visible pill in a sibling
+ * span so `peer-focus-visible:` can draw the focus ring — the same shape the product page's
+ * selectors use, for the same reason.
  *
- * Only the chosen method's fields are in the DOM. That is not just tidiness: the card fields are
- * the only place a card number could exist, so unmounting them when another method is chosen means
- * there is nowhere for one to be left behind.
+ * Only the chosen method's panel is in the DOM, so the page holds one method's content and no
+ * other's. A card was the reason that rule mattered. It is not any more: a card is taken by Stripe
+ * now, in its own fields, which this component never sees and cannot render.
  *
- * Every claim here is labelled. The block carries a `Simulation` pill, the test numbers are printed
- * with what they do, and the 3-D Secure code is on the page rather than in a developer's head.
- * There is no card-brand logo and no padlock, because neither would be true.
+ * Every claim here is labelled. Each method says in its own words what it does or does not do. The
+ * two simulated ones carry no card-brand logo and no padlock, because neither would be true of
+ * them; the card method's fields come from Stripe, which brings its own.
  *
  * The QR is the one method whose artefact is genuine: a real symbol, carrying a real address in
  * this shop (see {@link QrPanel}). It is a demonstration of the *flow*, not of a payment, and both
  * the note beside it and the address itself are on the page rather than implied.
  *
- * @param props.value      The method currently chosen.
- * @param props.onChange   Called with the newly chosen method.
- * @param props.cardErrors What was wrong with the card at the last submit attempt.
+ * @param props.value    The method currently chosen.
+ * @param props.onChange Called with the newly chosen method.
  */
 export function PaymentMethods({
   value,
   onChange,
-  cardErrors,
 }: {
   value: PaymentMethodId;
   onChange: (method: PaymentMethodId) => void;
-  cardErrors: CardErrors;
 }) {
   return (
     <div data-payment-method={value} className="space-y-5">
       <fieldset>
-        <div className="flex flex-wrap items-center gap-3">
-          <legend className="text-xs uppercase tracking-[0.25em] text-ink-400">
-            Payment method
-          </legend>
-          <Badge tone="muted">Simulation</Badge>
-        </div>
+        <legend className="text-xs uppercase tracking-[0.25em] text-ink-400">Payment method</legend>
 
         <p className="mt-2 text-sm text-ink-200">
-          Nothing is charged whichever one you pick. These are demonstrations of three checkout
-          flows, not connections to a payment provider.
+          One of these takes a real payment: Card runs through Stripe in <strong>test mode</strong>,
+          so the flow is real and no real card is charged. The other two are demonstrations of
+          checkout flows, not connections to a payment provider.
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -109,40 +93,10 @@ export function PaymentMethods({
       </fieldset>
 
       {/*
-        One panel, holding the chosen method's own content. Because it is keyed on the method, the
-        card fields are unmounted the moment another method is picked - there is no hidden copy of
-        a typed number left in the DOM.
+        One panel, holding the chosen method's own content — and only the chosen one's: switching
+        method unmounts what the other had, so nothing a visitor typed is left behind in the DOM.
       */}
       <div className="rounded-2xl border border-line bg-ink-950/60 p-4">
-        {("card" === value) && (
-          <>
-            <p className="text-sm font-medium text-ink-50">
-              {paymentMethod(value).label} — a sandbox, and nothing else
-            </p>
-
-            <p className="mt-1 text-xs leading-relaxed text-ink-400">
-              Use one of these numbers. They are published test numbers, the challenge accepts the
-              code below, and no digit of either one is sent anywhere: the payment travels to the
-              shop as the word “{paymentMethod(value).label.toLowerCase()}”, and nothing more.
-            </p>
-
-            <dl className="mt-3 space-y-2 text-xs" data-test-cards>
-              {TEST_CARDS.map((card) => (
-                <div key={card.number} className="flex flex-wrap gap-x-2">
-                  <dt className="font-mono tabular-nums text-ink-200">{card.number}</dt>
-                  <dd className="text-ink-400">{card.result}</dd>
-                </div>
-              ))}
-              <div className="flex flex-wrap gap-x-2">
-                <dt className="font-mono tabular-nums text-ink-200">{TEST_OTP}</dt>
-                <dd className="text-ink-400">The code the simulated challenge accepts.</dd>
-              </div>
-            </dl>
-
-            <CardForm errors={cardErrors} />
-          </>
-        )}
-
         {("qr" === value) && <QrPanel />}
 
         {("cod" === value) && (

@@ -135,8 +135,9 @@ export async function Footer() {
           <p className="text-sm font-medium text-ink-50">21+ only.</p>
           <p className="mt-2 text-sm text-ink-200">
             Vapestack carries nicotine products and is for adults aged 21 and over. This is a
-            portfolio demo: the products are invented, no payment is ever taken, no order is
-            fulfilled, no order email is sent and no nicotine product ships.
+            portfolio demo: the products are invented, a card runs through Stripe in test mode so no
+            real card is charged, no order is fulfilled, no order email is sent and no nicotine
+            product ships.
           </p>
         </div>
 

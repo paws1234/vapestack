@@ -5,8 +5,9 @@ import type { Product } from "@/lib/wp/types";
  *
  * Two honest halves. The specification is WordPress's own short description — the field the
  * catalogue has always carried and the storefront has never shown. The shipping line is the same
- * statement the checkout and the footer make: this shop takes no payment and posts no parcel, so
- * the order that gets created is a record rather than a delivery.
+ * statement the checkout and the footer make: this shop posts no parcel, so the order that gets
+ * created is a record rather than a delivery, and the card payment that can run through Stripe is
+ * in test mode.
  *
  * The specifications section in between is for the products whose facts came in as data rather than
  * as copy - the imported ones. It is a definition list, not the selectors `ProductDetail` renders:
@@ -58,9 +59,10 @@ export function ProductNotes({ product }: { product: Product }) {
       <section>
         <h2 className="text-2xl font-semibold text-ink-50">Shipping and payment</h2>
         <p className="mt-3 max-w-2xl leading-relaxed text-ink-200">
-          Nothing ships and nothing is charged. Vapestack is a demonstration storefront: the
-          checkout writes a real order into WooCommerce and returns its number, but no payment is
-          taken and no parcel is posted.
+          Nothing ships. Vapestack is a demonstration storefront: the checkout writes a real order
+          into WooCommerce and returns its number, a card runs through Stripe in <strong>test
+          mode</strong> — so the flow is real and no real card is charged — and no parcel is posted.
+          QR payment and cash on delivery are simulations, and say so.
         </p>
       </section>
     </div>

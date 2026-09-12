@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { PaymentMethods } from "@/components/checkout/payment-methods";
+import { StripeCard, type CardOrder } from "@/components/checkout/stripe-card";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { Field, TextAreaField } from "@/components/ui/field";
 import { Price } from "@/components/ui/price";
 import { writeDemoOrder } from "@/lib/demo-order";
-import { cartSubtotal, useCartStore } from "@/stores/cart";
+import { DEFAULT_PAYMENT_METHOD, paymentMethod, type PaymentMethodId } from "@/lib/payment-simulation";
+import { cartSubtotal, useCartStore, type CartItem } from "@/stores/cart";
 
 /**
  * Reads a field out of the submitted form.
@@ -43,11 +46,68 @@ function hydrationOnServer(): boolean {
 }
 
 /**
- * The checkout form.
+ * The basket as the visitor sees it, and the one total that is theirs rather than the shop's.
+ *
+ * Shared by the form's own step and the card step after it, so the two cannot drift apart about
+ * what is being bought while the visitor is looking at the other one.
+ *
+ * @param props.items    Lines in the cart.
+ * @param props.subtotal What they come to, for display only.
+ */
+function OrderSummary({ items, subtotal }: { items: CartItem[]; subtotal: number }) {
+  return (
+    <section className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
+      <h2 className="text-lg font-semibold text-ink-50">Your order</h2>
+
+      <ul className="mt-4 divide-y divide-ink-800">
+        {items.map((line) => (
+          <li key={line.key} className="flex items-start justify-between gap-4 py-3">
+            <div className="min-w-0">
+              <p className="text-ink-50">{line.name}</p>
+
+              {line.options.length > 0 ? (
+                <p className="text-sm text-ink-400">{line.options.join(" · ")}</p>
+              ) : null}
+
+              <p className="text-sm text-ink-400">Quantity {line.quantity}</p>
+            </div>
+
+            <Price
+              min={line.unitPrice * line.quantity}
+              max={line.unitPrice * line.quantity}
+              className="shrink-0 text-ink-50"
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 flex items-center justify-between border-t border-ink-800 pt-4">
+        <span className="text-sm text-ink-400">Subtotal</span>
+        <Price min={subtotal} max={subtotal} className="text-lg font-semibold text-neon-400" />
+      </div>
+
+      <p className="mt-3 text-xs text-ink-400">
+        WooCommerce prices the order it creates, not this total.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * The checkout, in two steps.
  *
  * The order is created by the route and priced by WooCommerce, so every number shown here is for
  * display and the cart is emptied only once an order exists. A failure leaves the cart alone: the
  * visitor keeps what they had and can try again.
+ *
+ * **A card is two steps because the order comes first.** Stripe's fields cannot be rendered without
+ * an intent, an intent cannot be created without an amount, and the amount has to be WooCommerce's
+ * own total - so the first step collects the details and asks the route for the order and its
+ * intent, and the second shows Stripe's element for them. The two simulated methods finish in the
+ * first step, because for them the order *is* the whole record.
+ *
+ * No branch here reads a card number. The card is typed into Stripe's own fields, inside Stripe's
+ * own iframe, and what comes back is a status.
  */
 export function CheckoutForm() {
   const router = useRouter();
@@ -56,6 +116,12 @@ export function CheckoutForm() {
 
   const hydrated = useSyncExternalStore(subscribeToHydration, isHydrated, hydrationOnServer);
 
+  const [method, setMethod] = useState<PaymentMethodId>(DEFAULT_PAYMENT_METHOD);
+  /** The order and intent behind a card payment, once the first step has run. */
+  const [card, setCard] = useState<CardOrder | null>(null);
+  /** Which step the payment block is on, exposed as `data-state` so a test reads it.
+   * (`data-payment-step` on the card block is Stripe's own answer, not this one.) */
+  const [phase, setPhase] = useState<"details" | "starting" | "payment" | "paid">("details");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +134,15 @@ export function CheckoutForm() {
   }, []);
 
   const subtotal = cartSubtotal(items);
+
+  /* One label for the one button, so what it promises matches which step it starts. */
+  const submitLabel = isSubmitting
+    ? "stripe" === method
+      ? "Starting the payment…"
+      : "Placing the order…"
+    : "stripe" === method
+      ? "Continue to payment"
+      : "Place the demo order";
 
   /**
    * Posts the basket and, once an order exists, empties the cart and shows it.
@@ -86,6 +161,10 @@ export function CheckoutForm() {
 
     setIsSubmitting(true);
     setError(null);
+
+    if ("stripe" === method) {
+      setPhase("starting");
+    }
 
     try {
       const response = await fetch("/api/checkout", {
@@ -106,11 +185,19 @@ export function CheckoutForm() {
             postcode: field(data, "postcode"),
           },
           note: field(data, "note"),
+          payment: method,
         }),
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { id?: number; demo?: boolean; error?: string }
+        | {
+          id?: number;
+          number?: string;
+          total?: string;
+          clientSecret?: string;
+          demo?: boolean;
+          error?: string;
+        }
         | null;
 
       /*
@@ -127,6 +214,8 @@ export function CheckoutForm() {
             total: line.unitPrice * line.quantity,
           })),
           total: subtotal,
+          /* The same words the shop would have recorded, so the two paths cannot disagree. */
+          payment: paymentMethod(method).recorded,
         });
 
         clear();
@@ -137,6 +226,25 @@ export function CheckoutForm() {
 
       if (!response.ok || "number" !== typeof payload?.id) {
         setError(payload?.error ?? "The order could not be created. Please try again.");
+        setPhase("details");
+        setIsSubmitting(false);
+
+        return;
+      }
+
+      /*
+        A card stops here: the order and its intent exist, and Stripe's fields are the step after
+        this one. The cart is deliberately **not** cleared - nothing has been paid yet, and this
+        form may still be abandoned.
+      */
+      if ("stripe" === method && "string" === typeof payload.clientSecret) {
+        setCard({
+          id: payload.id,
+          number: payload.number ?? String(payload.id),
+          total: payload.total ?? String(subtotal),
+          clientSecret: payload.clientSecret,
+        });
+        setPhase("payment");
         setIsSubmitting(false);
 
         return;
@@ -150,6 +258,7 @@ export function CheckoutForm() {
       router.push(`/checkout/success/${payload.id}`);
     } catch {
       setError("The checkout could not be reached. Check your connection and try again.");
+      setPhase("details");
       setIsSubmitting(false);
     }
   }
@@ -173,47 +282,58 @@ export function CheckoutForm() {
     );
   }
 
+  /*
+    The second step: Stripe's fields for the order that already exists. The basket is shown again
+    rather than left behind, so a visitor paying does not lose sight of what they are paying for -
+    and the amount on the button is WooCommerce's, not the one this browser computed.
+  */
+  if (card) {
+    return (
+      <div className="space-y-6">
+        <OrderSummary items={items} subtotal={subtotal} />
+
+        <section data-state={phase} className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
+          <h2 className="text-lg font-semibold text-ink-50">Pay for order {card.number}</h2>
+          <p className="mt-1 text-sm text-ink-400">
+            Nothing has been charged yet. Your card is entered into Stripe&rsquo;s own fields, in test
+            mode, and no card detail reaches this site.
+          </p>
+
+          <div className="mt-5">
+            <StripeCard
+              order={card}
+              onPaid={() => {
+                setPhase("paid");
+                clear();
+                router.push(`/checkout/success/${card.id}`);
+              }}
+            />
+          </div>
+
+          <p className="mt-4 text-xs text-ink-400">
+            Leaving without paying is allowed: the order is recorded in WooCommerce as unpaid, and
+            nothing is charged.
+          </p>
+
+          <Link
+            href="/shop"
+            className="mt-2 inline-block text-sm text-ink-400 transition hover:text-neon-400"
+          >
+            Back to the shop
+          </Link>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={placeOrder} className="space-y-6">
-      <section className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
-        <h2 className="text-lg font-semibold text-ink-50">Your order</h2>
-
-        <ul className="mt-4 divide-y divide-ink-800">
-          {items.map((line) => (
-            <li key={line.key} className="flex items-start justify-between gap-4 py-3">
-              <div className="min-w-0">
-                <p className="text-ink-50">{line.name}</p>
-
-                {line.options.length > 0 ? (
-                  <p className="text-sm text-ink-400">{line.options.join(" · ")}</p>
-                ) : null}
-
-                <p className="text-sm text-ink-400">Quantity {line.quantity}</p>
-              </div>
-
-              <Price
-                min={line.unitPrice * line.quantity}
-                max={line.unitPrice * line.quantity}
-                className="shrink-0 text-ink-50"
-              />
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 flex items-center justify-between border-t border-ink-800 pt-4">
-          <span className="text-sm text-ink-400">Subtotal</span>
-          <Price min={subtotal} max={subtotal} className="text-lg font-semibold text-neon-400" />
-        </div>
-
-        <p className="mt-3 text-xs text-ink-400">
-          WooCommerce prices the order it creates, not this total.
-        </p>
-      </section>
+      <OrderSummary items={items} subtotal={subtotal} />
 
       <section className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
         <h2 className="text-lg font-semibold text-ink-50">Where it would go</h2>
         <p className="mt-1 text-sm text-ink-400">
-          Demo details: no payment is taken and nothing ships.
+          Demo details: nothing ships, and a card runs through Stripe in test mode.
         </p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -256,6 +376,10 @@ export function CheckoutForm() {
         />
       </section>
 
+      <section data-state={phase} className="rounded-3xl border border-ink-800 bg-ink-900 p-6">
+        <PaymentMethods value={method} onChange={setMethod} />
+      </section>
+
       {error ? (
         <p
           role="alert"
@@ -267,7 +391,7 @@ export function CheckoutForm() {
 
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? "Placing the order…" : "Place the demo order"}
+          {submitLabel}
         </Button>
 
         <Link

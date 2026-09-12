@@ -5,9 +5,10 @@
  * should say, so the same subtotal always gives the same answer and nothing here needs a clock,
  * a store or a component.
  *
- * The tiers are **a simulation of a spend ladder**. This shop takes no payment, so it ships
- * nothing and gives nothing away; the copy built from these labels says so, and the labels
- * themselves are worded as things a shop could promise rather than things this one does.
+ * The tiers are **a simulation of a spend ladder**. This shop ships nothing and gives nothing away —
+ * a card can be taken through Stripe in test mode, and even that moves no real money — so the copy
+ * built from these labels says so, and the labels themselves are worded as things a shop could
+ * promise rather than things this one does.
  */
 
 /** One rung of the ladder. */

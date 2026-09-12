@@ -23,8 +23,9 @@ export default function ShippingReturnsPage() {
     >
       <p>
         Vapestack is a demonstration storefront. When you place an order, a real record is created in
-        the WooCommerce installation behind the site — and that is where it stops. No payment is
-        taken, no parcel is packed, and no courier is booked.
+        the WooCommerce installation behind the site — and that is where it stops. No parcel is
+        packed and no courier is booked; a card runs through Stripe in test mode, so the payment
+        flow is real and the money is not.
       </p>
 
       <h2>What that means in practice</h2>
@@ -34,15 +35,18 @@ export default function ShippingReturnsPage() {
           to give you.
         </li>
         <li>
-          <strong>Charges.</strong> None. No card details are collected, and there is no payment
-          provider connected.
+          <strong>Charges.</strong> None that are real. A card is taken through Stripe in test
+          mode, so the card is validated and the order is marked paid while no money moves. QR
+          payment and cash on delivery are simulations and record themselves as such.
         </li>
         <li>
           <strong>Returns.</strong> Nothing was sent, so nothing can come back.
         </li>
         <li>
-          <strong>Order status.</strong> Every order is recorded as <em>processing</em>, and it will
-          stay that way. There is no fulfilment step to move it along.
+          <strong>Order status.</strong> A simulated method records the order as <em>processing</em>{" "}
+          at once, because for it there is nothing to wait for. A card order is recorded as{" "}
+          <em>pending</em> and becomes <em>processing</em> only when Stripe confirms the payment —
+          which a test card does in a few seconds.
         </li>
       </ul>
 

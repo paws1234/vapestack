@@ -4,7 +4,8 @@ import { Container } from "@/components/ui/container";
 
 export const metadata: Metadata = {
   title: "Checkout",
-  description: "Place a demo order: WooCommerce records it, nothing is charged and nothing ships.",
+  description:
+    "Place a demo order: WooCommerce records it, a card runs through Stripe in test mode, and nothing ships.",
 };
 
 /**
@@ -22,7 +23,10 @@ export default function CheckoutPage() {
         <code className="rounded bg-ink-800 px-1.5 py-0.5 font-mono text-xs text-ink-200">
           wc_get_orders()
         </code>{" "}
-        and found in wp-admin. It is a demo: no payment is taken and nothing ships.
+        and found in wp-admin. Card payments run through{" "}
+        <strong className="font-semibold text-ink-50">Stripe in test mode</strong> — a real payment
+        flow and no real money — while QR payment and cash on delivery are simulations. Nothing
+        ships.
       </p>
 
       <div className="mt-10">

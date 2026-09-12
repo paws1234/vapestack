@@ -115,8 +115,8 @@ export function CartDrawer() {
               </div>
 
               <p className="text-xs text-ink-400">
-                A demo shop: nothing is charged and nothing ships. WooCommerce prices the order
-                that is created, not this total.
+                A demo shop: nothing ships, and a card runs through Stripe in test mode. WooCommerce
+                prices the order that is created, not this total.
               </p>
 
                 {/*

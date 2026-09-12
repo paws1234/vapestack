@@ -20,7 +20,33 @@ type RawOrder = {
   number: string;
   status: string;
   total: string;
+  currency: string;
+  payment_method: string;
+  payment_method_title: string;
   line_items: { name: string; quantity: number; total: string }[];
+};
+
+/**
+ * A new order, as the checkout route needs it.
+ *
+ * The total and the currency are WooCommerce's own, and are the only amount anything may charge:
+ * they are what the Payment Intent is built from, rather than the browser's subtotal.
+ */
+export type NewOrder = {
+  id: number;
+  number: string;
+  /** WooCommerce's total for the order, as a decimal string, e.g. `"29.98"`. */
+  total: string;
+  /** Its currency code, e.g. `"usd"`. */
+  currency: string;
+};
+
+/** The order fields this app may change once the order exists. */
+export type OrderPatch = {
+  status?: string;
+  set_paid?: boolean;
+  transaction_id?: string;
+  meta_data?: { key: string; value: string }[];
 };
 
 /** How WooCommerce reports a refusal. */
@@ -95,7 +121,7 @@ function messageFrom(payload: unknown, status: number): string {
  */
 async function wpRest<TData>(
   path: string,
-  options: { method?: "GET" | "POST"; body?: unknown } = {},
+  options: { method?: "GET" | "POST" | "PUT"; body?: unknown } = {},
 ): Promise<TData> {
   const { endpoint, authorization } = credentials();
 
@@ -145,25 +171,28 @@ async function wpRest<TData>(
 /**
  * Creates the order behind a checkout.
  *
- * Line items carry ids and quantities only - no prices - so WooCommerce prices the order from
- * its own catalogue and a tampered client cannot decide what it costs. The order is left unpaid,
- * because this is a demo and no money moves.
+ * Line items carry ids and quantities only - no prices - so WooCommerce prices the order from its
+ * own catalogue and a tampered client cannot decide what it costs.
  *
  * The payment the visitor chose is recorded as WooCommerce's own `payment_method` and
  * `payment_method_title`, which the REST API has always accepted - no order meta key was invented
- * for this. Both strings come from `payment-simulation.ts` and both say the payment was simulated,
- * so the shop's own record cannot be read as a real transaction either.
+ * for this. Both strings come from `payment-simulation.ts`.
+ *
+ * **A card order is created `pending` and unpaid**, and is only marked paid when Stripe says the
+ * money moved (see {@link updateOrder}, and `markOrderPaid` in the webhook). The two simulated
+ * methods keep the `processing` status they have always had: no money is involved, so there is
+ * nothing to wait for. The status is the honest record of which of those two things happened.
  *
  * @param request Validated checkout request.
- * @returns The new order's id and number, and nothing else about it.
+ * @returns The new order's identity, and the total and currency WooCommerce priced it at.
  */
-export async function createOrder(request: CheckoutRequest): Promise<{ id: number; number: string }> {
+export async function createOrder(request: CheckoutRequest): Promise<NewOrder> {
   const payment = paymentMethod(request.payment);
 
   const order = await wpRest<RawOrder>("/orders", {
     method: "POST",
     body: {
-      status: "processing",
+      status: "stripe" === payment.id ? "pending" : "processing",
       payment_method: payment.slug,
       payment_method_title: payment.recorded,
       set_paid: false,
@@ -184,7 +213,52 @@ export async function createOrder(request: CheckoutRequest): Promise<{ id: numbe
     },
   });
 
-  return { id: order.id, number: order.number };
+  return {
+    id: order.id,
+    number: order.number,
+    total: order.total,
+    currency: order.currency,
+  };
+}
+
+/**
+ * Changes an order that already exists.
+ *
+ * The only two uses are the two halves of one story: recording the Payment Intent's id when the
+ * payment is started, and marking the order paid when Stripe confirms it.
+ *
+ * @param id    WooCommerce order id.
+ * @param patch Fields to change; anything omitted is left alone.
+ * @throws WooCommerceError when WooCommerce refuses, e.g. 404 for an unknown order.
+ */
+export async function updateOrder(id: number, patch: OrderPatch): Promise<void> {
+  await wpRest<RawOrder>(`/orders/${id}`, { method: "PUT", body: patch });
+}
+
+/**
+ * Reads one meta value off an order.
+ *
+ * Generic on purpose: this module knows about WooCommerce and nothing about what any particular key
+ * means, so the Stripe side owns its own key and asks for it here rather than this file learning
+ * about payments.
+ *
+ * @param id  WooCommerce order id.
+ * @param key Meta key.
+ * @returns The value, or null when the order or the key is not there.
+ */
+export async function readOrderMeta(id: number, key: string): Promise<string | null> {
+  try {
+    const order = await wpRest<{ meta_data?: { key: string; value: unknown }[] }>(`/orders/${id}`);
+    const row = (order.meta_data ?? []).find((entry) => entry.key === key);
+
+    return "string" === typeof row?.value ? row.value : null;
+  } catch (error) {
+    if (error instanceof WooCommerceError && 404 === error.status) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -220,6 +294,9 @@ function toOrderSummary(order: RawOrder): OrderSummary {
     number: order.number,
     status: order.status,
     total: toAmount(order.total),
+    /* The shop's own record of how it was to be paid, and its own words for it. */
+    paymentMethod: order.payment_method,
+    paymentTitle: order.payment_method_title,
     items: order.line_items.map(
       (line): OrderSummaryLine => ({
         name: line.name,

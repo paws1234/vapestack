@@ -7,6 +7,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Price } from "@/components/ui/price";
 import { getOrderSummary } from "@/lib/wp/rest";
+import { reconcileOrder } from "@/lib/stripe/settle";
 import type { OrderSummary } from "@/lib/wp/types";
 import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Order placed",
-  description: "The demo order Vapestack created in WooCommerce.",
+  description: "The order Vapestack created in WooCommerce, and whether Stripe has been paid.",
 };
 
 type SuccessPageProps = {
@@ -66,7 +67,13 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
   let order: OrderSummary | null;
 
   try {
-    order = await getOrderSummary(orderId);
+    /*
+      A card order may have been paid seconds ago without having been told so yet - a webhook is
+      delivered on Stripe's schedule, not this page's - so the read asks Stripe about an order that
+      is still waiting before this page decides what to say. One request, and only for a pending
+      order.
+    */
+    order = await reconcileOrder(await getOrderSummary(orderId));
   } catch (error) {
     /*
       The order was created moments ago, so WordPress was reachable then. If it is not reachable
@@ -83,15 +90,47 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
     notFound();
   }
 
+  /*
+    Three things a summary can be, and they are not interchangeable: a card that has been paid, a
+    card that has not, and a simulated method that was never going to charge anything. Status alone
+    cannot tell the last two apart - both are `processing` - so the recorded method is read as well.
+  */
+  const isCard = "stripe" === order.paymentMethod;
+  const isPaid = isCard && ("processing" === order.status || "completed" === order.status);
+
   return (
     <Container width="narrow" className="py-10">
       <p className="text-sm font-medium text-neon-400">Order {order.number}</p>
-      <h1 className="mt-2 text-3xl font-semibold text-ink-50 sm:text-4xl">Order placed</h1>
-      <p className="mt-2 text-ink-200">
-        WooCommerce recorded it as{" "}
-        <span className="text-ink-50">{readableStatus(order.status)}</span>. This is a demo order:
-        no payment was taken, no email was sent and nothing ships.
-      </p>
+      <h1 className="mt-2 text-3xl font-semibold text-ink-50 sm:text-4xl">
+        {isPaid ? "Paid" : "Order placed"}
+      </h1>
+
+      {isPaid ? (
+        <p className="mt-2 text-ink-200">
+          Stripe took the card in <strong className="font-semibold text-ink-50">test mode</strong>,
+          so no real money moved, and WooCommerce recorded the order as{" "}
+          <span className="text-ink-50">{readableStatus(order.status)}</span>. No email was sent and
+          nothing ships.
+        </p>
+      ) : isCard ? (
+        <p className="mt-2 text-ink-200">
+          WooCommerce has it as <span className="text-ink-50">{readableStatus(order.status)}</span>,
+          which means the payment has not completed and nothing has been charged.{" "}
+          <Link
+            href="/checkout"
+            className="text-ink-50 underline decoration-line underline-offset-4 transition hover:text-neon-400"
+          >
+            Back to the checkout
+          </Link>{" "}
+          to try another card.
+        </p>
+      ) : (
+        <p className="mt-2 text-ink-200">
+              WooCommerce recorded it as <span className="text-ink-50">{readableStatus(order.status)}</span>
+              , under <span className="text-ink-50">{order.paymentTitle}</span>. That method is a
+              simulation: nothing was charged, no email was sent and nothing ships.
+            </p>
+      )}
 
       <ul className="mt-8 divide-y divide-ink-800 rounded-3xl border border-ink-800 bg-ink-900 px-6">
         {order.items.map((line, index) => (

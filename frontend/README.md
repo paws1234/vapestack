@@ -46,11 +46,12 @@ internal URL can reach the browser.
 | Path | What it holds |
 | --- | --- |
 | `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
-| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the three API routes (`checkout`, `orders/[id]`, `contact`), and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
-| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its payment sandbox, the order timeline, the search dialog, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
+| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the four API routes (`checkout`, `orders/[id]`, `contact`, `stripe/webhook`), and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
+| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its two steps (details, then Stripe's own card fields), the order timeline, the search dialog, the age gate. The cart drawer's hold banner and reward ladder live with the cart. |
 | `src/components/product/` | Everything that describes one product: the card, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
 | `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client. |
-| `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), the spend ladder (`cart-rewards.ts`), the payment sandbox (`payment-simulation.ts`: the methods, the test cards and the step machine), the order timeline's stages with their per-order storage (`order-timeline.ts`), and the search index built from the layout's catalogue read (`search-index.ts`). |
+| `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), the spend ladder (`cart-rewards.ts`), the payment methods (`payment-simulation.ts`), the order timeline's stages with their per-order storage (`order-timeline.ts`), and the search index built from the layout's catalogue read (`search-index.ts`). |
+| `src/lib/stripe/` | Everything that knows about Stripe, all of it server-only: the client (`client.ts`, the one place `STRIPE_SECRET_KEY` is read), the money conversion (`amount.ts`), and the Payment Intent (`payment.ts`). |
 | `src/stores/` | The persisted Zustand cart, the mobile nav's open state, and the search dialog's open state with its query. |
 | `public/` | Static assets. Product images are not among them: the catalogue is imported, and each product's photograph is served from the WordPress media library. |
 
@@ -67,20 +68,30 @@ internal URL can reach the browser.
   was about to send. Keep that path working when touching `catalog.ts`, `rest.ts` or the checkout
   route.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
-  order is created server-side with a credential the browser never sees. Nothing about an order is
-  charged, shipped or emailed. The cart also holds its lines for ten minutes — a **simulated**
+  order is created server-side with a credential the browser never sees. No order is shipped or
+  emailed, and the only charge that can happen is a Stripe one in test mode — which moves no real
+  money. The cart also holds its lines for ten minutes — a **simulated**
   reservation, stored as a deadline in `stores/cart.ts` and ticked only while the drawer is open.
   Nothing is really held back, and the copy says so. (The contact form is the one part of this app
   that does send email — see `src/lib/contact-mail.ts`.)
-- **The checkout's payment is a sandbox, and the card never leaves the browser.** Three methods are
-  offered in `components/checkout/payment-methods.tsx`; the card path simulates a 3-D Secure
-  challenge and a declined card creates no order at all. The request body carries
-  `payment: "card" | "qr" | "cod"` and nothing else — no number, no expiry, no code. The chosen
-  method is recorded on the WooCommerce order as `payment_method`/`payment_method_title`, in words
-  that say it was simulated, and on the demo receipt in the same words. The QR method's symbol is a
-  **real** one: `qrcode.react` encodes `absoluteUrl("/checkout")` into a scannable code and the
-  address is printed beside it, because a code that points at nothing is the dishonest version —
-  there is still no merchant behind it, so it cannot charge anything.
+- **A card is paid through Stripe in test mode, and no card digit reaches this app.** Card is the
+  default method, and it is a **two-step** checkout: `POST /api/checkout` creates the WooCommerce
+  order **first** — `pending`, priced by WooCommerce — and then a Stripe **Payment Intent for that
+  total**, which is what the second step's card fields need. The amount charged is therefore never
+  the subtotal the browser displayed. The card itself is entered into Stripe's own fields, in
+  Stripe's own iframe, so nothing in this app's requests, orders, storage or logs can contain one.
+  The order is marked paid only when Stripe says the money moved: the webhook
+  (`app/api/stripe/webhook`) or, if that delivery is late or lost, the next read of the order
+  (`reconcileOrder()`). Keys come from `tools/configure-stripe.sh`; with none set the route answers
+  503 before creating anything and the two simulated methods carry on. `../docs/stripe-plan.md` is
+  the plan, `../docs/stripe-tasks.md` the record.
+- **QR payment and cash on delivery are simulations, and say so.** Both are recorded on the
+  WooCommerce order as `payment_method`/`payment_method_title` in words that include "simulated", so
+  the shop's own record cannot be read as a real payment either, and the demo receipt carries the
+  same words. The QR method's symbol is a **real** one: `qrcode.react` encodes
+  `absoluteUrl("/checkout")` into a scannable code and the address is printed beside it, because a
+  code that points at nothing is the dishonest version — there is still no merchant behind it, so it
+  cannot charge anything.
 - **There is no root `loading.tsx`, and adding one is a bug, not a nicety.** Measured by toggling
   only that file: with it, `/product/does-not-exist` and `/shop/does-not-exist` answer **200** five
   times out of five; without it, **404** five times out of five. A `loading.tsx` opens a Suspense

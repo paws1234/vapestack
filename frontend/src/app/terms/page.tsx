@@ -31,9 +31,10 @@ export default function TermsPage() {
       <h2>Nothing is for sale</h2>
       <p>
         Vapestack is a demonstration. Every product is invented, every price is illustrative, and
-        placing an order creates a record in a database and nothing else. No payment is taken, no
-        goods are supplied, no delivery is arranged, and no contract of sale is formed — at any
-        point, by any action you take here.
+        placing an order creates a record in a database and nothing else. A card payment runs
+        through Stripe in <strong>test mode</strong>, so the flow is real and no real card is
+        charged; the other two methods are simulations. No goods are supplied, no delivery is
+        arranged, and no contract of sale is formed — at any point, by any action you take here.
       </p>
 
       <h2>No warranty, and no promise it stays up</h2>

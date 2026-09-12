@@ -1,21 +1,28 @@
 /**
- * Creates a WooCommerce order from the cart.
+ * Creates a WooCommerce order from the cart, and - for a card - the payment that will pay for it.
  *
- * Server-only by necessity: the WooCommerce credential lives in this process and the browser is
- * told nothing but the new order's id and number. Nothing from the client is trusted except
- * product ids and quantities, which are resolved against the catalogue before WooCommerce is
- * asked to do anything, and priced by WooCommerce afterwards.
+ * Server-only by necessity: the WooCommerce and Stripe credentials live in this process, and the
+ * browser is told nothing but the new order's identity and, for a card, the client secret of one
+ * Payment Intent. Nothing from the client is trusted except product ids and quantities, which are
+ * resolved against the catalogue before WooCommerce is asked to do anything and priced by
+ * WooCommerce afterwards. **The amount charged is WooCommerce's total**, never the subtotal the
+ * browser displayed.
  *
  * **This route never sees a card.** The payment field is one of three published ids, checked
- * against the same list the browser renders; there is no branch here that reads a number, an
- * expiry or a code, and no field in {@link CheckoutRequest} that could hold one. The simulated
- * 3-D Secure challenge completes in the browser before the request is made, and what it leaves
- * behind is the word "card".
+ * against the same list the browser renders, and no field in {@link CheckoutRequest} could hold a
+ * card number - the card is entered into Stripe's own fields in the browser, which is why what
+ * crosses this boundary is a client secret and not a number.
+ *
+ * A card order is created `pending` and unpaid, because the money has not moved yet; it becomes
+ * `processing` when Stripe says so. An abandoned payment therefore leaves an order that says it was
+ * never paid, which is the honest outcome rather than a tidy one.
  */
 
 import { isPaymentMethodId } from "@/lib/payment-simulation";
+import { isStripeConfigured, StripeNotConfiguredError } from "@/lib/stripe/client";
+import { PAYMENT_INTENT_META, startCardPayment } from "@/lib/stripe/payment";
 import { getProducts } from "@/lib/wp/catalog";
-import { createOrder, WooCommerceError } from "@/lib/wp/rest";
+import { createOrder, updateOrder, WooCommerceError, type NewOrder } from "@/lib/wp/rest";
 import type { CheckoutRequest } from "@/lib/wp/types";
 import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 import { MAX_QUANTITY } from "@/stores/cart";
@@ -69,6 +76,28 @@ function upstream(what: string, error: unknown): Response {
   console.error(`Checkout: ${what} failed.`, detail);
 
   return Response.json({ error: "The order could not be created. Please try again." }, { status: 502 });
+}
+
+/**
+ * Answers when Stripe could not be reached or refused the request.
+ *
+ * The message says what is actually true of the order, because by this point one exists: it is
+ * unpaid, WooCommerce records it as pending, and the visitor has been charged nothing.
+ *
+ * @param what  What failed, for the log line.
+ * @param error Whatever was thrown. Never returned: a Stripe refusal names the key or the account,
+ *              which is diagnosis rather than something a visitor can act on.
+ */
+function paymentFailed(what: string, error: unknown): Response {
+  console.error(`Checkout: ${what} failed.`, error);
+
+  return Response.json(
+    {
+      error:
+        "The card payment could not be started. Nothing was charged, and your order is recorded as unpaid.",
+    },
+    { status: 502 },
+  );
 }
 
 /**
@@ -296,8 +325,22 @@ export async function POST(request: Request) {
     return invalid(reason);
   }
 
+  /*
+    Refused before an order exists, so an unconfigured shop reads as what it is rather than as a
+    pending order nobody can pay. The card is the only method that needs anything outside
+    WooCommerce.
+  */
+  if ("stripe" === payload.payment && !isStripeConfigured()) {
+    return Response.json(
+      { error: "This shop has no card payment set up. Choose QR payment or cash on delivery." },
+      { status: 503 },
+    );
+  }
+
+  let order: NewOrder;
+
   try {
-    return Response.json(await createOrder(payload));
+    order = await createOrder(payload);
   } catch (error) {
     /*
      * The catalogue read above is cached, so it can still answer while the tunnel behind it has
@@ -309,5 +352,52 @@ export async function POST(request: Request) {
     }
 
     return upstream("order creation", error);
+  }
+
+  /*
+    Only a card has anything else to do. The two simulated methods end here: the order *is* the
+    whole record, which is what they have always meant.
+  */
+  if ("stripe" !== payload.payment) {
+    return Response.json({ id: order.id, number: order.number });
+  }
+
+  try {
+    /*
+      The intent comes after the order, because the amount has to be WooCommerce's own total. Its
+      id is written onto the order, which is the only path back from Stripe to this shop - what the
+      webhook and the reconcile both follow.
+    */
+    const started = await startCardPayment(order, payload.billing.email);
+
+    try {
+      await updateOrder(order.id, {
+        meta_data: [{ key: PAYMENT_INTENT_META, value: started.paymentIntentId }],
+      });
+    } catch (error) {
+      /*
+        The payment can still be confirmed and the webhook finds the order through the intent's own
+        metadata, so a failed write here is logged rather than turned into a refused checkout. What
+        it costs is the read-side reconcile, which is worth knowing about.
+      */
+      console.error(`Checkout: recording the payment intent on order ${order.id} failed.`, error);
+    }
+
+    return Response.json({
+      id: order.id,
+      number: order.number,
+      total: order.total,
+      currency: order.currency,
+      clientSecret: started.clientSecret,
+    });
+  } catch (error) {
+    if (error instanceof StripeNotConfiguredError) {
+      return Response.json(
+        { error: "This shop has no card payment set up. Choose QR payment or cash on delivery." },
+        { status: 503 },
+      );
+    }
+
+    return paymentFailed("starting the card payment", error);
   }
 }

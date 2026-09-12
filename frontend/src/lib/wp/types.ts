@@ -106,10 +106,11 @@ export type CheckoutRequest = {
     postcode: string;
   };
   /**
-   * Which simulated method was chosen.
+   * Which method was chosen.
    *
-   * An id and nothing else: no card number, no expiry and no code from the simulated challenge
-   * ever reaches this route, which is why the type has nowhere to put one.
+   * An id and nothing else: no card number, no expiry and no code ever reaches this route. A card
+   * is entered into Stripe's own fields in the browser, which is why the type has nowhere to put
+   * one.
    */
   payment: PaymentMethodId;
   /** Optional note attached to the order. */
@@ -135,5 +136,15 @@ export type OrderSummary = {
   number: string;
   status: string;
   total: number;
+  /**
+   * How the order was to be paid, as WooCommerce records it - the slug, e.g. `stripe`.
+   *
+   * The success page needs it because status alone cannot tell a paid card from a simulated method
+   * that was never going to charge anything: both can be `processing`, and saying "paid" about the
+   * second one would be the exact kind of claim this project does not make.
+   */
+  paymentMethod: string;
+  /** The title WooCommerce shows for it, e.g. `Stripe (test mode)`. */
+  paymentTitle: string;
   items: OrderSummaryLine[];
 };

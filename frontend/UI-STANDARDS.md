@@ -311,38 +311,50 @@ and a fuzzy-matching dependency would need its own written decision.
   lives in the browser and the WooCommerce order is never updated. There is no courier name, no
   tracking number, no arrival date and no map in the copy, because none of those exist here.
 
-### The payment sandbox is a step machine, and the card never leaves the browser
+### The payment method is a label, and only the chosen method's panel is in the DOM
 
-Three rules came out of the checkout's payment block, and they are rules rather than choices.
+Two rules came out of the checkout's payment block, and both still hold.
 
-1. **The flow is a written-down machine, exposed as `data-state`.** `lib/payment-simulation.ts`
-   holds the steps (`idle → validating → challenge → authorising → approved | declined`) and the
-   transitions each may make; the checkout form moves through `go(next)`, which refuses a step the
-   machine does not have. The payment `<section>` carries `data-state={step}`, so a test reads the
-   state instead of inferring it from which paragraph is on screen.
-2. **The card fields are uncontrolled and are read once.** `card-form.tsx` never puts a digit into
-   React state: the checkout form reads `cardName`/`cardNumber`/`cardExpiry`/`cardCvc` out of its
-   own `FormData` at submit, `validateCard` returns only *errors* and the outcome is derived by
-   `cardOutcome` — the digits go out of scope with the local object. The request body carries
-   `payment: "card"` and nothing else. Fields carry `autoComplete="off"` and `inputMode="numeric"`
-   and deliberately **no** `autocomplete="cc-number"`.
-3. **Only the chosen method's fields are in the DOM.** The panel is keyed on the selection, so
-   switching method unmounts the card inputs. There is nowhere for a typed number to be left behind.
+1. **Every method says what it is, where it is chosen.** `lib/payment-simulation.ts` holds the three
+   methods and the words WooCommerce records for each — `stripe` records `Stripe (test mode)`, and
+   the two simulated ones carry "simulated" in their titles — so the shop's own record cannot be
+   misread either. Each option states what it does or does not do. The block deliberately no longer
+   carries a "Simulation" pill: one of its methods is not one.
+2. **Only the chosen method's panel is in the DOM.** Switching method unmounts what the other one
+   had, so nothing a visitor typed can be left behind in a field the form no longer shows.
 
-**A `required` control in an always-mounted, `inert` dialog is a bug.** The 3-D Secure dialog stays
-mounted so it can be `inert` when closed (the same reason the drawer and the nav do), and a
-`required` input inside it makes the browser refuse to submit the *checkout* form with *"An invalid
-form control with name='tdsCode' is not focusable"* — the payment never starts. The empty code is
-refused by the dialog's own message instead. Verified while building T3.
+**What the retired card sandbox taught, kept because it will be needed again.** The card method was
+first a sandbox: a written-down step machine (`idle → validating → challenge → authorising →
+approved | declined`) exposed as `data-state`, with uncontrolled card fields read once from the
+form's own `FormData`. Two traps came out of it that outlive the code. A `required` control inside
+an always-mounted `inert` dialog makes the browser refuse to submit the *outer* form — *"An invalid
+form control with name='tdsCode' is not focusable"*, so the checkout never started — and a step a
+visitor must be able to escape needs a real `onEscape` rather than a modal that refuses to close.
+The sandbox was retired when a card became Stripe's business, in Stripe's own fields:
+`../docs/stripe-plan.md`.
 
-**Escape cancels the challenge; it does not refuse to close.** The dialog is a retryable step, not a
-question that must be answered like the age gate, so `useModalBehaviour` is given a real `onEscape`
-that returns to the form: the cart is untouched, no order exists and the typed details are still
-where the visitor left them. Cancel does the same thing.
+### Stripe's fields are themed, not styled
 
-**A decline is a designed state, not an error page.** It is rendered as a `role="alert"` block in the
-form, the submit button says "Try another card", and the dialog closes — there is no dead end and
-nothing is silently swallowed.
+The card step is the only part of this app whose markup belongs to someone else, and that changes
+what is possible rather than what is preferred.
+
+- **The Payment Element renders inside an iframe Stripe serves**, so no Tailwind class reaches it
+  and no CSS custom property crosses the boundary. It is themed through the Appearance API's
+  `variables`, which mirror the tokens in `globals.css` **by value** —
+  `components/checkout/stripe-card.tsx` carries the mapping with the token named beside each hex.
+  Change a token and it has to change in both places, or the card fields drift off the panel behind
+  them.
+- **The contrast script cannot measure it.** It is a different document, and the text inside it is
+  Stripe's own. What this app guarantees is the contrast of the panel around it.
+- **Nothing in this app's DOM, state, storage or logs can hold a card digit**, because the digits are
+  typed into that iframe. The checkout's own state is a client secret, a status and a message.
+- **The step exposes two attributes, deliberately different.** `data-state` on the payment section
+  (`details | starting | payment | paid`) is this app's own step, and `data-payment-step` on the card
+  block (`idle | paying | declined`) is Stripe's answer, so a test reads rather than infers.
+- **A card is two steps, and the order is why.** Stripe's fields need an intent, an intent needs an
+  amount, and the amount has to be WooCommerce's — so the details are collected, the order and its
+  intent are created, and only then can the card be entered. The two simulated methods finish in the
+  first step, because for them the order is the whole record.
 
 ### A ladder is a pure function, and its track is a boundary
 
