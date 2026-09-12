@@ -1,21 +1,14 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgeGate } from "@/components/age-gate";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { SearchDialog } from "@/components/search/search-dialog";
 import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
-import { buildSearchIndex } from "@/lib/search-index";
-import { siteUrl } from "@/lib/site";
 import { getCatalogue } from "@/lib/wp/catalog";
 import "./globals.css";
-
-/** One description, used by the metadata, OpenGraph and Twitter tags alike. */
-const DESCRIPTION =
-  "A portfolio vape storefront: Next.js and Tailwind in front, a real WooCommerce and WPGraphQL shop behind it. 21+ only, nothing ships.";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,62 +31,21 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  /*
-    `metadataBase` is what turns every relative URL in metadata — the OpenGraph image, the
-    canonical, the icon — into the absolute one a crawler or a chat client needs. Without it Next
-    warns and emits `http://localhost:3000` in production.
-  */
-  metadataBase: new URL(siteUrl()),
   title: {
     default: "Vapestack",
     template: "%s | Vapestack",
   },
-  description: DESCRIPTION,
-  applicationName: "Vapestack",
-  openGraph: {
-    type: "website",
-    siteName: "Vapestack",
-    title: "Vapestack",
-    description: DESCRIPTION,
-    url: "/",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Vapestack",
-    description: DESCRIPTION,
-  },
-  /*
-    The tab icon is the brand mark, cut square out of `resources/image.jpg` and written to
-    `app/favicon.ico` by `resources/make-icons.mjs` — 16, 32 and 48 pixel frames in one file, which
-    is why no size is named here. Mentioning it explicitly rather than relying on the file
-    convention keeps it in the metadata where it can be seen.
-  */
-  icons: {
-    icon: [{ url: "/favicon.ico", sizes: "any" }],
-  },
-};
-
-/**
- * The browser chrome colour, in the page background token.
- *
- * `themeColor` lives in the `viewport` export rather than in `metadata` — Next moved it, and a
- * `themeColor` left in `metadata` is ignored with a warning.
- */
-export const viewport: Viewport = {
-  themeColor: "#07080c",
+  description:
+    "A headless vape storefront: Next.js and Tailwind on the front, WooCommerce and WPGraphQL behind it.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const catalogue = await getCatalogue();
-  const categories = catalogue?.categories ?? [];
-
   /*
-    The search index comes from the read above - no second fetch, no route handler and nothing at
-    build time. It is deliberately slim: an entry is a name, where it goes and the words that find
-    it. The products' HTML descriptions stay on the server, where they are not paid for on every
-    page.
+    The mobile nav needs the same ranges the header shows. Reading them here rather than inside
+    the panel keeps `MobileNav` a plain client component, and costs nothing: `getCatalogue()` is
+    wrapped in React `cache()`, so the header's read and this one are the same read.
   */
-  const searchIndex = buildSearchIndex(catalogue?.products ?? [], categories);
+  const categories = (await getCatalogue())?.categories ?? [];
 
   return (
     <html
@@ -108,27 +60,35 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         {/*
+          First in the document on purpose: it is the first thing Tab reaches, and it is what
+          lets a keyboard visitor skip the wordmark, the five nav links and the cart on every page.
+        */}
+        <SkipLink />
+
+        {/*
           Runs before the first paint, long before React: it hides the age gate for a visitor
           who has already confirmed, so no returning visitor sees the shop flash behind it.
           `AGE_GATE_SCRIPT` explains itself.
         */}
         <script dangerouslySetInnerHTML={{ __html: AGE_GATE_SCRIPT }} />
 
-        <SkipLink />
-        <Header categories={categories} />
+        <Header />
+        {/*
+          `id` and `tabIndex` together are what the skip link needs: the id is the target, and the
+          tab index is what moves focus there. Without it the page would scroll and leave focus on
+          the link itself, which reads as a skip link that does nothing.
+        */}
         <main id="main-content" tabIndex={-1} className="flex-1">
           {children}
         </main>
         <Footer />
 
         {/*
-          The three overlays live outside `<header>`: that element is `backdrop-blur`, and a
+          Both overlays live outside `<header>`: that element is `backdrop-blur`, and a
           `backdrop-filter` would make it the containing block for anything `fixed` inside it.
-          All three stay mounted, `inert` while closed, so a hidden panel can never be tabbed into.
         */}
-        <MobileNav categories={categories} />
         <CartDrawer />
-        <SearchDialog index={searchIndex} />
+        <MobileNav categories={categories} />
         <AgeGate />
       </body>
     </html>

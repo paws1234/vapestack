@@ -2,38 +2,32 @@ import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { MobileNavButton } from "@/components/layout/mobile-nav-button";
 import { NavLinks } from "@/components/layout/nav-links";
-import { SearchButton } from "@/components/search/search-button";
 import { buttonStyles } from "@/components/ui/button";
-import type { Category } from "@/lib/wp/types";
+import { getCatalogue } from "@/lib/wp/catalog";
 
 /** Wordmark and category navigation. */
-export function Header({ categories }: { categories: Category[] }) {
+export async function Header() {
+  /*
+    A header is not worth failing a page over. With WordPress unreachable the navigation falls back
+    to the plain shop link, and the page below it decides what to say about the missing catalogue.
+  */
+  const categories = (await getCatalogue())?.categories ?? [];
+
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:gap-6 sm:px-8">
-        {/*
-          The wordmark carries less air below `sm` on purpose. At 320px the wordmark, search, menu
-          and cart cannot all fit with 0.25em tracking: measured, the controls ended 29px past the
-          viewport (x=349 in 320px). Tightening the tracking and the row's gap there is what buys
-          the room, rather than hiding a control.
-        */}
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
         <Link
           href="/"
-          className="text-base font-semibold tracking-[0.12em] text-ink-50 transition hover:text-neon-400 sm:text-lg sm:tracking-[0.25em]"
+          className="text-lg font-semibold tracking-[0.25em] text-ink-50 transition hover:text-neon-400"
         >
           VAPESTACK
         </Link>
 
-        {/*
-          The ranges are the nav's business, not the header's: `NavLinks` owns the breakpoint and the
-          active-range marking, and reads the current path as a client component so this one can stay
-          a server component.
-        */}
         <NavLinks categories={categories} />
 
         {/*
-          Below `lg` the inline nav is hidden and the header is tight, so the wordmark and the
-          cart are what is left; "Shop all" is a convenience the menu panel also covers.
+          At mobile widths the nav is hidden and the header is tight, so the wordmark and the
+          cart are what is left; "Shop all" is a desktop convenience the categories also cover.
 
           `max-md:hidden` rather than `hidden md:inline-flex`: Tailwind v4 emits `.inline-flex`
           after `.hidden`, so the unprefixed `hidden` loses to the display utility `buttonStyles`
@@ -47,8 +41,12 @@ export function Header({ categories }: { categories: Category[] }) {
             Shop all
           </Link>
 
-          <SearchButton />
+          {/*
+            Below `md` this is the only way to reach a range: the nav above is hidden and
+            "Shop all" is too. It renders itself hidden at `md` and up.
+          */}
           <MobileNavButton />
+
           <CartButton />
         </div>
       </div>

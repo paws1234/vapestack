@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OfflineNotice } from "@/components/layout/offline-notice";
-import { Breadcrumbs, type Crumb } from "@/components/product/breadcrumbs";
 import { ProductDetail } from "@/components/product/product-detail";
-import { ProductJsonLd } from "@/components/product/product-json-ld";
-import { ProductNotes } from "@/components/product/product-notes";
-import { RelatedProducts } from "@/components/product/related-products";
 import { Container } from "@/components/ui/container";
-import { getCatalogue, getProductBySlug } from "@/lib/wp/catalog";
+import { getProductBySlug } from "@/lib/wp/catalog";
 import type { Product } from "@/lib/wp/types";
 import { UpstreamUnavailableError } from "@/lib/wp/upstream";
 
@@ -74,19 +71,15 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       summary.length > META_DESCRIPTION_LIMIT
         ? `${summary.slice(0, META_DESCRIPTION_LIMIT - 3)}...`
         : summary,
-    alternates: { canonical: `/product/${product.slug}` },
   };
 }
 
 /**
  * One product in full.
  *
- * The page keeps what only has to be true once - the metadata, the 404 for an unknown slug, the
- * breadcrumb trail and the rest of the range - and hands the block whose image, price and options
- * move together to `ProductDetail`.
- *
- * The range listing comes out of `getCatalogue()`, which is the same `cache()`d read the header
- * and the footer already make, so the related row costs no extra trip to WordPress.
+ * The page keeps what only has to be true once - the metadata, the 404 for an unknown slug and
+ * the link back to the range - and hands the block whose image, price and options move together
+ * to `ProductDetail`.
  *
  * @param props.params Route parameters carrying the product slug.
  */
@@ -102,43 +95,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const category = product.category;
-  const catalogue = await getCatalogue();
-
-  /* The rest of the range, minus the product being looked at. WordPress is sorted by name, so
-     this keeps that order rather than inventing a second one. */
-  const related = category
-    ? (catalogue?.products ?? []).filter(
-      (candidate) => candidate.category?.slug === category.slug && candidate.id !== product.id,
-    )
-    : [];
-
-  const trail: Crumb[] = [
-    { name: "Home", href: "/" },
-    { name: "Shop", href: "/shop" },
-    ...(category ? [{ name: category.name, href: `/shop/${category.slug}` }] : []),
-    { name: product.name, href: `/product/${product.slug}` },
-  ];
-
-  const summary = plainText(product.shortDescription || product.description);
-
   return (
     <Container className="py-10">
-      <Breadcrumbs items={trail} />
-
-      <ProductDetail product={product} />
-
-      <ProductNotes product={product} />
-
-      {category ? (
-        <RelatedProducts
-          products={related.slice(0, 3)}
-          range={category.name}
-          rangeSlug={category.slug}
-        />
+      {product.category ? (
+        <Link
+          href={`/shop/${product.category.slug}`}
+          className="text-sm text-ink-400 transition hover:text-neon-400"
+        >
+          ← {product.category.name}
+        </Link>
       ) : null}
 
-      <ProductJsonLd product={product} description={summary} />
+      <ProductDetail product={product} />
     </Container>
   );
 }

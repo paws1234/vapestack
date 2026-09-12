@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DemoOrderSummary } from "@/components/checkout/demo-order-summary";
-import { OrderTimeline } from "@/components/checkout/order-timeline";
 import { OfflineNotice } from "@/components/layout/offline-notice";
 import { buttonStyles } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Price } from "@/components/ui/price";
-import { startingStage } from "@/lib/order-timeline";
 import { getOrderSummary } from "@/lib/wp/rest";
 import type { OrderSummary } from "@/lib/wp/types";
 import { UpstreamUnavailableError } from "@/lib/wp/upstream";
@@ -92,7 +90,7 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
       <p className="mt-2 text-ink-200">
         WooCommerce recorded it as{" "}
         <span className="text-ink-50">{readableStatus(order.status)}</span>. This is a demo order:
-        no payment was taken, no order email was sent and nothing ships.
+        no payment was taken, no email was sent and nothing ships.
       </p>
 
       <ul className="mt-8 divide-y divide-ink-800 rounded-3xl border border-ink-800 bg-ink-900 px-6">
@@ -109,13 +107,6 @@ export default async function CheckoutSuccessPage({ params }: SuccessPageProps) 
         <span className="text-ink-200">Total</span>
         <Price min={order.total} max={order.total} className="text-lg font-semibold text-neon-400" />
       </div>
-
-      {/*
-        The timeline starts from the order's own status - a completed order starts at the end of
-        the demonstration, a fresh one at the beginning - and the reviewer control moves a copy of
-        the stage that lives in this browser. WooCommerce itself is never updated.
-      */}
-      <OrderTimeline orderId={String(order.id)} startStage={startingStage(order.status)} />
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link href="/shop" className={buttonStyles("primary", "md")}>
