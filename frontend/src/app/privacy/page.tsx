@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { BlockContent } from "@/components/blocks/block-content";
 import { InfoPage } from "@/components/layout/info-page";
+import { OfflineNotice } from "@/components/layout/offline-notice";
+import { getPageBlocks } from "@/lib/wp/pages";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -10,72 +14,29 @@ export const metadata: Metadata = {
 /**
  * The privacy page, which has the advantage of being able to say almost nothing is collected.
  *
- * Every claim here is checked against the code before it is made: the two storage keys are in
- * `lib/age-gate.ts` and `stores/cart.ts`, the order and the contact message are the only things that
- * leave the browser, and the app sets no cookies and loads no third-party script. If a tracker is
- * ever added, this page is the first thing that has to change.
+ * Its claims are now WordPress's copy, so they are editable - and that is a real responsibility
+ * rather than a convenience: the two storage keys are in `lib/age-gate.ts` and `stores/cart.ts`, and
+ * the app sets no cookies and loads no third-party script. **If a tracker is ever added, this page
+ * has to change in WordPress**, and nothing in the code will remind anybody.
  */
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const blocks = await getPageBlocks("privacy");
+
+  if (undefined === blocks) {
+    return <OfflineNotice what="privacy page" />;
+  }
+
+  if (null === blocks) {
+    notFound();
+  }
+
   return (
     <InfoPage
       title="Privacy"
       intro="Two things live in your browser, and only what you type into a form is sent anywhere."
       updated="11 September 2026"
     >
-      <p>
-        This is a demonstration storefront, and it collects as close to nothing as a shop that takes
-        orders can. There is no analytics, no advertising, no third-party script and no cookie. No
-        account is created, and nothing here knows who you are between visits.
-      </p>
-
-      <h2>What is stored in your browser</h2>
-      <ul>
-        <li>
-          <strong>Your cart.</strong> The items, with the options you chose, under the key{" "}
-          <code>vapestack-cart</code>. It is there so a reload does not empty your basket. Clearing
-          your browser storage clears it.
-        </li>
-        <li>
-          <strong>Your age answer.</strong> A single value, under the key{" "}
-          <code>vapestack-age-verified</code>, so the gate does not ask again on every page. The
-          footer has a control that forgets it.
-        </li>
-      </ul>
-
-      <h2>What leaves your browser</h2>
-      <p>
-        One thing: when you submit the checkout, the items in your cart and the billing details you
-        typed are sent to this site&apos;s own server, which creates a WooCommerce order with them.
-        That order stores the name, email, address and note you entered, in the same database as the
-        catalogue. It is a demo order and nothing is done with it — but it is a real record, so type
-        nothing you would not want sitting in a WordPress database.
-      </p>
-      <p>
-        And one more, if you use the contact form: the name, email address and message you type are
-        sent to this site&apos;s server, which hands them to a mail provider so they arrive in the
-        inbox of the person who built this. Nothing about a contact message is stored on this site —
-        there is no table for it and no mailing list — and the address is used only as the reply-to
-        on that one email.
-      </p>
-
-      <h2>What is not collected</h2>
-      <ul>
-        <li>No analytics, no session recording, no advertising identifiers.</li>
-        <li>No IP address is stored by the application.</li>
-        <li>
-          No payment details reach this site. A card is entered into Stripe&rsquo;s own fields and
-          goes to Stripe, which processes it under its own privacy policy; this site is told only
-          whether the payment succeeded. The account is in test mode, so no real card is charged.
-        </li>
-        <li>No account, no password, and no profile.</li>
-      </ul>
-
-      <h2>Removing what is there</h2>
-      <p>
-        Clearing site data for this domain removes the cart and the age answer from your browser. A
-        demo order created through the checkout can be deleted from the site&apos;s WordPress admin,
-        which is where it lives.
-      </p>
+      <BlockContent blocks={blocks} />
     </InfoPage>
   );
 }

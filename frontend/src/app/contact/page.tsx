@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { ContactForm } from "@/components/contact/contact-form";
+import { notFound } from "next/navigation";
+import { BlockContent } from "@/components/blocks/block-content";
 import { InfoPage } from "@/components/layout/info-page";
-import { CONTACT_EMAIL } from "@/lib/site";
+import { OfflineNotice } from "@/components/layout/offline-notice";
+import { getPageBlocks } from "@/lib/wp/pages";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -11,63 +13,33 @@ export const metadata: Metadata = {
 /**
  * How to get in touch.
  *
- * The form is real: it emails a real inbox, and the address is printed beside it because email is
- * just as good a route and does not depend on this deployment having a mail provider configured.
+ * The prose is WordPress's, like its four siblings. The **form is not**: it is the one thing on these
+ * pages that is behaviour rather than words, so it stays a component and the page holds a shortcode
+ * block in the place it belongs. The renderer draws `[vapestack_contact_form]` as `<ContactForm />`
+ * and refuses every other shortcode, so a visitor can never be shown `[something]` as text.
  *
- * There is still no message store, no CRM and no ticket queue behind the form. A message becomes an
- * email and nothing else, which is what the copy here promises and what `POST /api/contact` does.
+ * The email address is the one wart of the move: it is written into the copy, which means changing it
+ * is an edit in WordPress and not a change to `lib/site.ts`. The footer and the API route still read
+ * the constant, so the two have to be changed together.
  */
-export default function ContactPage() {
+export default async function ContactPage() {
+    const blocks = await getPageBlocks("contact");
+
+    if (undefined === blocks) {
+        return <OfflineNotice what="contact page" />;
+    }
+
+    if (null === blocks) {
+        notFound();
+    }
+
   return (
     <InfoPage
       title="Contact"
       intro="This is a demo, but there is a real person behind it."
       updated="11 September 2026"
     >
-      <p>
-        Vapestack was built as a portfolio piece. If something here is broken, or you want to talk
-        about how it was put together, send a message below or email{" "}
-        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. That inbox is mine and I read it.
-      </p>
-
-      <h2>Send a message</h2>
-      <p>
-        Three fields, and it arrives as ordinary email. Your address is the reply-to, so replying to
-        it answers you.
-      </p>
-      <ContactForm />
-
-      <h2>What happens to a message</h2>
-      <ul>
-        <li>
-          <strong>It is emailed to me.</strong> Straight to an inbox, as plain text, with no
-          formatting for anything you type to be interpreted as.
-        </li>
-        <li>
-          <strong>Nothing is stored.</strong> There is no table for it, no mailing list and no
-          autoresponder — no ticket number will arrive, because there is no ticketing system. The
-          message lives in my mail, and nowhere else.
-        </li>
-        <li>
-          <strong>It is not a way to reach an order.</strong> Still, and unavoidably, there is no
-          order to check on. See below.
-        </li>
-      </ul>
-
-      <h2>What there is no one to ask about</h2>
-      <ul>
-        <li>
-          <strong>Orders.</strong> A demo order is a row in a database on a laptop. It cannot be
-          shipped, cancelled, refunded or chased.
-        </li>
-        <li>
-          <strong>Stock.</strong> The catalogue is seeded from a script. Nothing is back-ordered.
-        </li>
-        <li>
-          <strong>Your account.</strong> There are none. The cart lives in your own browser, and
-          nothing here knows who you are.
-        </li>
-      </ul>
+          <BlockContent blocks={blocks} />
     </InfoPage>
   );
 }

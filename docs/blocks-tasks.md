@@ -177,7 +177,7 @@ is pasted here.
 
 ---
 
-### B2 — The block renderer and its mapping table
+### B2 — The block renderer and its mapping table — `[x]` done
 
 **Goal** — `lib/wp/blocks.ts` and `components/blocks/block-content.tsx` render every block in the
 plan's table from a fixture, and render an unknown block's children instead of failing.
@@ -227,9 +227,41 @@ temporary fixture used for the check.
 
 **Size** — M
 
+> verified 2026-09-12. `/tmp/blocks-check.cjs` (Playwright, production build on 3002) against a
+> temporary route, `app/blocks-fixture/page.tsx`, that drew the fixture through the real `InfoPage`
+> shell. The route has been deleted; the readings are what is left of it.
+>
+> **Every row of the table, from the DOM.** Headings: the fixture holds levels 1, 3 and 6 and the
+> page rendered `["H1:Blocks fixture","H2:Heading level 1","H3:Heading level 3","H3:Heading level 6"]`
+> — **exactly one `h1`**, the shell's, so the plan's demotion is real and not aspirational. A
+> paragraph arrived as `<p>A paragraph with <strong>bold</strong> in it.</p>` with the `<strong>`
+> intact. Scoped to the body copy (the page's own nav and footer otherwise inflate every count):
+> bullets `["First bullet","Second bullet with emphasis"]`, numbered
+> `["First numbered","Second numbered"]`, columns `["Left column.","Right column."]`. A quote gave
+> `{ text: "Quoted words. A citation", cite: "A citation" }`; the separator is one `<hr>`; the spacer
+> is `32px`; the image is `{ alt: "Fixture image", width: "800", height: "800",
+> src: "/_next/image?url=http%3A%2F%2Flocalhost%3A8889%2Fwp-content%2F…" }` — so it goes through the
+> optimiser rather than being dumped as a raw URL — with `figcaption` `A caption`; the buttons are
+> `href=/shop` with the project's own `rounded-full` button classes and **no** target, and
+> `href=https://example.com` with `target=_blank rel="noreferrer noopener"` and an outlined style.
+>
+> **The three cases that must not break a page.** An unknown block's child rendered
+> (`Child of an unknown block.` → true), a `core/missing` block's child rendered (true), and
+> `core/html` rendered **false** with its `<script>` **not executed** (`window.__fixtureScriptRan`
+> undefined) — so the one block an editor could use to inject markup is refused, and the page kept
+> every other block. Horizontal overflow 0 at 1440.
+>
+> `tsc`, `lint` and `build` clean; `frontend/package.json` untouched.
+>
+> **One deliberate deviation from the plan.** The plan put `renderBlock()` in `lib/wp/blocks.ts`
+> "pure — no React import". A function that returns React elements cannot be both, so the module
+> holds the types and the readers (`textOf`, `headingLevel`, `listItems`, `buttonsIn`, `imageFrom`,
+> `spacerHeight`, `childrenOf`) and the table lives in `components/blocks/block-content.tsx`, where
+> one line per block is still the whole cost of adding a block.
+
 ---
 
-### B3 — The five pages are seeded into WordPress as blocks
+### B3 — The five pages are seeded into WordPress as blocks — `[x]` done
 
 **Goal** — `/about`, `/contact`, `/privacy`, `/shipping-returns` and `/terms` exist in WordPress as
 published pages whose blocks hold **exactly** today's copy, written by an idempotent script.
@@ -272,9 +304,36 @@ before/after comparison table pasted here.
 
 **Size** — M
 
+> verified 2026-09-12. `/tmp/extract-pages.py` generated `tools/data/pages/*.html` from the pages as
+> they **rendered** (not from the JSX), so the seeded copy cannot be a transcription; then
+> `wp-content/themes/vapestack-theme/tools/seed-pages.php` wrote them, and `/tmp/verify-seed.py`
+> compared WordPress against the baseline captured before the move.
+>
+> **First run:** five pages created — `about` (1078, 12 blocks), `contact` (1079, 14), `privacy`
+> (1080, 16), `shipping-returns` (1081, 9), `terms` (1082, 10). **Second run:** `0 created, 5
+> updated`, so it is idempotent by slug rather than duplicating.
+>
+> **Nothing was lost, measured rather than asserted.** Block counts in WordPress equal the counts in
+> the page as it rendered, and the stripped text is identical:
+>
+> | page | paragraphs | headings | list items | shortcode | text |
+> | --- | --- | --- | --- | --- | --- |
+> | about | 3 | 3 | 5 | — | identical |
+> | contact | 2 | 3 | 6 | 1 | identical |
+> | privacy | 4 | 4 | 6 | — | identical |
+> | shipping-returns | 2 | 2 | 4 | — | identical |
+> | terms | 5 | 5 | 0 | — | identical |
+>
+> `contact` needed one adjustment to be a like-for-like comparison: its form's labels and button were
+> in the baseline text because the form used to be part of the body copy, and it is a component now.
+> Comparing the page **minus the form** on both sides gives `identical`.
+>
+> The pages also came back clean — `{paragraph, heading, list, list-item}` and nothing else, no
+> `core/freeform` filler between blocks.
+
 ---
 
-### B4 — The five pages read their blocks, and the JSX copy is deleted
+### B4 — The five pages read their blocks, and the JSX copy is deleted — `[x]` done
 
 **Goal** — each page keeps its `metadata` and its `InfoPage` shell, takes its body from WordPress, and
 no longer holds a copy of the words.
@@ -320,9 +379,39 @@ again; `wpdev up` after; `git diff --stat`.
 
 **Size** — M
 
+> verified 2026-09-12. `/tmp/verify-pages.py` against the production build on 3002.
+>
+> **The five pages render the same words they rendered as JSX**, from WordPress:
+> `about` 3p/3h/5li, `contact` 2p/3h/6li (+ the form), `privacy` 4p/4h/6li, `shipping-returns`
+> 2p/2h/4li, `terms` 5p/5h — **identical text, identical counts**, on all five. The JSX is gone:
+> `git diff` shows each page file went from holding copy to holding a read.
+>
+> **Three things this task discovered, each by measurement.**
+>
+> 1. **The query did not compile, and the reason is a WordPress typing quirk.** `height` is `String!`
+>    on a spacer and `String` on an image, and GraphQL refuses to answer both under one name:
+>    `Fields "attributes" conflict because subfields "height" conflict because they return conflicting
+>    types String! and String`. Every page answered **500** until the three fields were aliased -
+>    `spacerHeight`, `imageWidth`, `imageHeight` - which also stops one word meaning two things in the
+>    reader.
+> 2. **The transport's five-minute cache is wrong for content.** `wpQuery()` now takes
+>    `{ revalidate }`, and `getPageBlocks()` passes `0`. Without that, an editor's paragraph would
+>    have been invisible for up to five minutes while their save looked broken - the exact opposite of
+>    what this feature is for. The catalogue keeps its 300s, because a 290-product read is not the same
+>    thing as one short document.
+> 3. **`core/shortcode` carries no `text` attribute the way the editor writes it.** WordPress declares
+>    that attribute `source: "html"`, so it is not serialised into the block comment and
+>    `attributes.text` arrives **null**; `renderedHtml` still carries `<p>[vapestack_contact_form]</p>`.
+>    `shortcodeText()` reads both. Found because the sweep asked the contact page whether its form was
+>    rendering and the answer was no.
+>
+> **Offline is a designed state.** With `wpdev down`, all five pages answer **200** with
+> `OfflineNotice` (`OFFLINE-NOTICE` in every reading, text ~1.8 kB, overflow 0) rather than a stack
+> trace; after `wpdev up` all five are 200 again and `wpdev smoke` is **10/10**.
+
 ---
 
-### B5 — The round trip is proved, and the sweep
+### B5 — The round trip is proved, and the sweep — `[x]` done
 
 **Goal** — a paragraph edited in the Block Editor appears on the Next.js page, and the whole change is
 swept at three widths, online and offline.
@@ -362,3 +451,43 @@ task that owns the file.
 **Verify** — the DOM readings, the screenshot files with `file` output, and `wpdev smoke`.
 
 **Size** — M
+
+> verified 2026-09-12. `/tmp/roundtrip.py`, `/tmp/blocks-resilience.cjs`, `/tmp/blocks-sweep.cjs`.
+>
+> **The round trip works, which is the whole feature.** A paragraph written through the block
+> editor's own route (`POST /wp-json/wp/v2/pages/1078`) appeared on `/about` on the next load —
+> `the sentence is on the page before the edit: False` → `after the edit: True` — and the revert
+> restored the stored markup **byte-identically** (`the stored markup is byte-identical again: True`),
+> with the sentence gone from the page. So an edit is visible on reload with no deploy, no build and
+> no restart.
+>
+> **Then the same thing through the editor itself**, because a REST write is not the same claim as a
+> person typing (both in `/tmp/editor-edit.cjs`). Logged into WP-Admin and opened the page editor:
+> the canvas rendered **13 blocks** — `core/paragraph`, `core/heading`, `core/list`, `core/list-item`
+> plus the title — typed a sentence into the first paragraph (`typed into the paragraph: true`),
+> clicked the editor's own **Save** button (`Page updated.`), and the storefront showed the sentence
+> (`the storefront shows it: true`). The revert then left `marker gone: true, stored markup
+> byte-identical: true`.
+>
+> All five pages open in the block editor with the block types the plan expects — `contact` carries
+> its `core/shortcode` block, labelled `Shortcode` — and no page has an unsupported or empty block.
+> Two things had to be found rather than assumed: the canvas renders **inside an iframe** (the top
+> document has no blocks in it), and the editor's welcome guide is a `.components-modal__screen-overlay`
+> that intercepts every click until it is dismissed.
+>
+> **An editor cannot break a page.** Into the same page, through the same route: an unknown block
+> holding a child block **(rendered — `true`)**, an unknown block holding raw HTML (`false`, see the
+> limit below), and a `core/html` block whose `<script>` set a flag — `the raw HTML drawn: false`,
+> `the injected script ran: false`, and the page's own copy intact with all three headings present.
+> The revert was byte-identical.
+>
+> **A limit worth naming**, because it is behaviour rather than a bug: an unknown block's **raw inner
+> HTML** is not drawn, only its child blocks are. That is the plan's rule (`unknown → children`), and
+> the conservative reading of it: the only way to draw that HTML is to render arbitrary markup, which
+> is the thing `core/html` is refused for. A block this site has not met is visible to the editor in
+> WP-Admin and invisible to the visitor — and it is one line in `block-content.tsx` to support it.
+>
+> **The sweep:** 5 routes x 3 widths = 15 screenshots, each confirmed by `file` at **1440x900,
+> 768x1024 and 390x844**, with `overflow=0` on every one and the contact form present on `/contact`
+> at all three. With WordPress stopped, the same 5 routes at 1440 returned 200 and the offline
+> notice; `wpdev up` restored all five and `wpdev smoke` passed **10/10**.

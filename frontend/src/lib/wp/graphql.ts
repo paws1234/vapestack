@@ -18,12 +18,20 @@ const REVALIDATE_SECONDS = 300;
 /**
  * Posts a query to WordPress and returns its data, or throws with a useful message.
  *
+ * `revalidate` is overridable because the two kinds of read want opposite things. The catalogue is a
+ * 290-product document that almost never changes, and five minutes of reuse is what keeps a page
+ * view from costing a fetch. A page's blocks are one short document that an editor changes *while
+ * looking at the site* - so `getPageBlocks()` passes `0`, which means no cache, and an edit is
+ * visible on the next reload rather than five minutes later.
+ *
  * @param query     GraphQL document.
  * @param variables Variables the document declares.
+ * @param options   How the response may be reused; defaults to the catalogue's five minutes.
  */
 export async function wpQuery<TData>(
   query: string,
   variables: Record<string, unknown> = {},
+  options: { revalidate?: number } = {},
 ): Promise<TData> {
   const endpoint = process.env.WP_GRAPHQL_URL;
 
@@ -40,7 +48,7 @@ export async function wpQuery<TData>(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
-      next: { revalidate: REVALIDATE_SECONDS, tags: ["catalogue"] },
+      next: { revalidate: options.revalidate ?? REVALIDATE_SECONDS, tags: ["catalogue"] },
     });
   } catch (error) {
     /* A refused connection or a timeout: WordPress is not there, which callers may handle. */

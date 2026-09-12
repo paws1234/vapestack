@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { BlockContent } from "@/components/blocks/block-content";
 import { InfoPage } from "@/components/layout/info-page";
+import { OfflineNotice } from "@/components/layout/offline-notice";
+import { getPageBlocks } from "@/lib/wp/pages";
 
 export const metadata: Metadata = {
   title: "About",
@@ -10,50 +14,34 @@ export const metadata: Metadata = {
 /**
  * What this site is, for a visitor who has noticed it is not quite a real shop.
  *
- * This is where the explanation of the stack belongs — it used to sit in the footer under every
- * page, where it was read as a shop telling customers about its own technology.
+ * The words are no longer in this file. They live in WordPress, on the page with the slug `about`,
+ * where they are edited in the block editor - see `docs/blocks-plan.md`, and
+ * `wp-content/themes/vapestack-theme/tools/seed-pages.php` for the copy as it was first written.
+ * This file keeps what is code: the route, the metadata, the shell and the two failures.
+ *
+ * The shell matters as much as the read. `InfoPage` renders the `h1`, the intro and the "last
+ * updated" line, and hands the body to `Prose`; so a page's title and its summary are still code
+ * while its body is content. That is the split the plan chose, not an oversight.
  */
-export default function AboutPage() {
+export default async function AboutPage() {
+  const blocks = await getPageBlocks("about");
+
+  /* Null is "no such page" and has to stay a 404; undefined is "WordPress is away". */
+  if (undefined === blocks) {
+    return <OfflineNotice what="about page" />;
+  }
+
+  if (null === blocks) {
+    notFound();
+  }
+
   return (
     <InfoPage
       title="About Vapestack"
       intro="A storefront demo, built to show a modern front end reading a real commerce backend."
       updated="11 September 2026"
     >
-      <p>
-        Vapestack is a portfolio project. The shop you are looking at is a Next.js application, and
-        everything it shows — names, prices, stock, images — comes from a WooCommerce catalogue read
-        over GraphQL at the moment you ask for it. Add something to the cart and check out, and a
-        real order is created in that WooCommerce installation.
-      </p>
-
-      <h2>Why it looks like this</h2>
-      <p>
-        The point of the exercise is the split: WordPress does the commerce, and the front end is
-        free to be quick and to look like whatever the brief asks for. There is no theme in charge of
-        the storefront, no page builder between the catalogue and the screen, and no plugin deciding
-        how a product grid should look.
-      </p>
-
-      <h2>What is real and what is not</h2>
-      <ul>
-        <li>The catalogue is real, and so are the orders the checkout writes.</li>
-        <li>
-          A card is taken through Stripe in <strong>test mode</strong>: the payment flow is real and
-          the money is not. No real card is charged, and the page tells you which test card to use.
-        </li>
-        <li>The other two payment methods are simulations, and say so where they are chosen.</li>
-        <li>Nothing ships, and no order email is sent — not even a confirmation.</li>
-        <li>The products are invented, and the images are generated placeholders.</li>
-      </ul>
-
-      <h2>The boring parts, briefly</h2>
-      <p>
-        WooCommerce and WPGraphQL on the back, Next.js and Tailwind on the front, a persisted cart in
-        the browser, and an order created through the WooCommerce REST API with a credential the
-        browser never sees. The age gate and the cart both work without accounts, because there are
-        no accounts.
-      </p>
+      <BlockContent blocks={blocks} />
     </InfoPage>
   );
 }

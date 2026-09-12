@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { BlockContent } from "@/components/blocks/block-content";
 import { InfoPage } from "@/components/layout/info-page";
+import { OfflineNotice } from "@/components/layout/offline-notice";
+import { getPageBlocks } from "@/lib/wp/pages";
 
 export const metadata: Metadata = {
   title: "Terms",
@@ -10,53 +14,29 @@ export const metadata: Metadata = {
 /**
  * Terms for a shop that sells nothing.
  *
- * The two things worth stating plainly are the age restriction, which is a real one, and the fact
- * that no sale occurs — which is what makes the rest of a normal terms page unnecessary rather than
- * omitted by accident.
+ * Editable in WordPress now, like the other four. The age restriction it states is real and is
+ * enforced by the gate in `components/age-gate.tsx`, which is code; the sentence that states it is
+ * copy. Changing one without the other is the mistake this arrangement makes possible, so the two
+ * are named together here.
  */
-export default function TermsPage() {
+export default async function TermsPage() {
+  const blocks = await getPageBlocks("terms");
+
+  if (undefined === blocks) {
+    return <OfflineNotice what="terms page" />;
+  }
+
+  if (null === blocks) {
+    notFound();
+  }
+
   return (
     <InfoPage
       title="Terms of use"
       intro="A demo shop, for adults, with nothing for sale."
       updated="11 September 2026"
     >
-      <h2>Age</h2>
-      <p>
-        This site shows and describes nicotine products. It is intended for adults aged{" "}
-        <strong>21 or over</strong>, and the gate on entry is there for that reason. If you are under
-        21, please leave.
-      </p>
-
-      <h2>Nothing is for sale</h2>
-      <p>
-        Vapestack is a demonstration. Every product is invented, every price is illustrative, and
-        placing an order creates a record in a database and nothing else. A card payment runs
-        through Stripe in <strong>test mode</strong>, so the flow is real and no real card is
-        charged; the other two methods are simulations. No goods are supplied, no delivery is
-        arranged, and no contract of sale is formed — at any point, by any action you take here.
-      </p>
-
-      <h2>No warranty, and no promise it stays up</h2>
-      <p>
-        The site is provided as it is, for demonstration and portfolio purposes, with no warranty of
-        any kind. It may be unavailable, it may change without notice, and the catalogue behind it
-        may be reset — which will empty carts that refer to products which no longer exist.
-      </p>
-
-      <h2>Content and images</h2>
-      <p>
-        Product names, descriptions and imagery are placeholders invented for this demo and are not
-        descriptions of any real product. Do not use anything here as product information or as
-        health guidance of any kind.
-      </p>
-
-      <h2>Acceptable use</h2>
-      <p>
-        Please do not use the checkout to submit abusive content, and please do not attempt to
-        attack or overload the site. The order note field is stored verbatim in the database behind
-        it.
-      </p>
+      <BlockContent blocks={blocks} />
     </InfoPage>
   );
 }

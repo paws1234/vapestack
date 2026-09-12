@@ -114,3 +114,119 @@ export const CATALOGUE_QUERY = `
     }
   }
 `;
+
+/**
+ * One block, and the attributes the renderer draws from.
+ *
+ * `attributes` is **not** on the `EditorBlock` interface - each block type carries its own - so this
+ * is one inline fragment per block `components/blocks/block-content.tsx` has a row for. That is also
+ * what makes an unsupported block safe: no fragment matches it, `attributes` simply does not arrive,
+ * and the block's `innerBlocks` still do.
+ *
+ * `innerBlocks` appears three times because a GraphQL document cannot recurse. Three levels is the
+ * depth of the deepest thing an editor is likely to build here - a group around columns around a
+ * paragraph - and past it a block still arrives with its name and children, so the renderer draws
+ * what it can rather than nothing.
+ *
+ * Three fields are aliased, and none of them for style. `height` is `String!` on a spacer and
+ * `String` on an image, which GraphQL refuses to answer under one name - measured, it answers
+ * `Fields "attributes" conflict because subfields "height" conflict because they return conflicting
+ * types String! and String`. Aliasing `spacerHeight`, `imageWidth` and `imageHeight` fixes the query
+ * and also stops one word meaning two things in the reader.
+ */
+const BLOCK_FIELDS = `
+  name
+  renderedHtml
+  ... on CoreParagraph {
+    attributes {
+      content
+    }
+  }
+  ... on CoreHeading {
+    attributes {
+      content
+      level
+    }
+  }
+  ... on CoreList {
+    attributes {
+      ordered
+      values
+    }
+  }
+  ... on CoreListItem {
+    attributes {
+      content
+    }
+  }
+  ... on CoreQuote {
+    attributes {
+      value
+      citation
+    }
+  }
+  ... on CoreSpacer {
+    attributes {
+      spacerHeight: height
+    }
+  }
+  ... on CoreImage {
+    attributes {
+      src
+      alt
+      caption
+      href
+      imageWidth: width
+      imageHeight: height
+    }
+    mediaDetails {
+      width
+      height
+    }
+  }
+  ... on CoreShortcode {
+    attributes {
+      text
+    }
+  }
+  ... on CoreButton {
+    attributes {
+      text
+      url
+      linkTarget
+    }
+  }
+`;
+
+/**
+ * One page, as the blocks it is made of.
+ *
+ * The page is asked for by URI rather than by slug: `PageIdType` offers `DATABASE_ID`, `ID` and
+ * `URI`, and an unknown URI answers `null` without an error - which is what lets the reader tell "no
+ * such page" from "WordPress is not answering".
+ */
+export const PAGE_BLOCKS_QUERY = `
+  query PageBlocks($uri: ID!) {
+    page(id: $uri, idType: URI) {
+      title
+      editorBlocks {
+        ${BLOCK_FIELDS}
+        innerBlocks {
+          ${BLOCK_FIELDS}
+          innerBlocks {
+            ${BLOCK_FIELDS}
+            innerBlocks {
+              name
+              renderedHtml
+              ... on CoreParagraph {
+                attributes {
+                  content
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;

@@ -1,0 +1,43 @@
+<!-- wp:paragraph -->
+<p>Vapestack is a portfolio project. The shop you are looking at is a Next.js application, and everything it shows — names, prices, stock, images — comes from a WooCommerce catalogue read over GraphQL at the moment you ask for it. Add something to the cart and check out, and a real order is created in that WooCommerce installation.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2 class="wp-block-heading">Why it looks like this</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The point of the exercise is the split: WordPress does the commerce, and the front end is free to be quick and to look like whatever the brief asks for. There is no theme in charge of the storefront, no page builder between the catalogue and the screen, and no plugin deciding how a product grid should look.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading -->
+<h2 class="wp-block-heading">What is real and what is not</h2>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>The catalogue is real, and so are the orders the checkout writes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A card is taken through Stripe in <strong>test mode</strong>: the payment flow is real and the money is not. No real card is charged, and the page tells you which test card to use.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The other two payment methods are simulations, and say so where they are chosen.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Nothing ships, and no order email is sent — not even a confirmation.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The products are invented, and the images are generated placeholders.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading -->
+<h2 class="wp-block-heading">The boring parts, briefly</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>WooCommerce and WPGraphQL on the back, Next.js and Tailwind on the front, a persisted cart in the browser, and an order created through the WooCommerce REST API with a credential the browser never sees. The age gate and the cart both work without accounts, because there are no accounts.</p>
+<!-- /wp:paragraph -->
