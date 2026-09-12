@@ -491,3 +491,15 @@ task that owns the file.
 > 768x1024 and 390x844**, with `overflow=0` on every one and the contact form present on `/contact`
 > at all three. With WordPress stopped, the same 5 routes at 1440 returned 200 and the offline
 > notice; `wpdev up` restored all five and `wpdev smoke` passed **10/10**.
+>
+> **And the same thing on the deployment** (commit `2df39d8`, Vercel production, verified
+> 2026-09-12): all five pages answer 200 with body copy **identical to the pre-move baseline** and
+> no offline fallback, and `/contact` still renders its form. The round trip holds there too — a
+> sentence written into WordPress locally through the editor's REST route appeared on
+> `vapestack.vercel.app/about` on the next request (`before: False` → `after: True`) and the revert
+> closed byte-identically. **No redeploy was involved**, which is the point of the whole exercise.
+>
+> The measured cost of that freshness, because `revalidate: 0` means these five pages are never
+> cached: three reads of `/about` on the deployment took **1.27s, 1.10s, 1.12s**, against ~0.5s for
+> the routes that read the 300-second catalogue cache. A short `revalidate` (10-30s) would trade a
+> few seconds of edit latency for that, and is one number in `getPageBlocks()`.
