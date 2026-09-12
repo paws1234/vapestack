@@ -14,6 +14,7 @@ import type {
   Product,
   ProductAttribute,
   ProductImage,
+  ProductSpec,
   ProductVariation,
   StockStatus,
 } from "./types";
@@ -41,6 +42,7 @@ type RawProduct = {
   databaseId: number;
   name: string;
   slug: string;
+  sku?: string | null;
   description: string | null;
   shortDescription: string | null;
   stockStatus: string;
@@ -48,10 +50,16 @@ type RawProduct = {
   productCategories: { nodes: { name: string; slug: string }[] };
   price?: string | null;
   attributes?: { nodes: RawAttribute[] };
+  specs?: { nodes: { label: string; options: string[] }[] };
   variations?: { nodes: RawVariation[] };
 };
 
-type CatalogueData = { products: { nodes: RawProduct[] } };
+type CatalogueData = {
+  products: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    nodes: RawProduct[];
+  };
+};
 
 /**
  * Converts a WordPress stock enum into the storefront's own two states.
@@ -125,6 +133,23 @@ function mapVariation(raw: RawVariation, alt: string): ProductVariation {
 }
 
 /**
+ * Maps a product's specification attributes onto label/value pairs.
+ *
+ * A custom attribute's options are the values themselves rather than term slugs, so unlike
+ * `mapAttribute` there is nothing to look up.
+ *
+ * @param raw Product as returned by WordPress.
+ */
+function mapSpecs(raw: RawProduct): ProductSpec[] {
+  return (raw.specs?.nodes ?? [])
+    .map((spec) => ({
+      label: spec.label.trim(),
+      value: spec.options.join(", ").trim(),
+    }))
+    .filter((spec) => spec.label !== "" && spec.value !== "");
+}
+
+/**
  * Maps a product, deriving the price range and availability WordPress does not give us.
  *
  * A variable product's own price field is a comma-joined list of variation prices, so the
@@ -149,6 +174,7 @@ function mapProduct(raw: RawProduct): Product {
     id: raw.databaseId,
     name: raw.name,
     slug: raw.slug,
+    sku: raw.sku?.trim() ?? "",
     description: raw.description ?? "",
     shortDescription: raw.shortDescription ?? "",
     category: raw.productCategories.nodes[0] ?? null,
@@ -162,6 +188,7 @@ function mapProduct(raw: RawProduct): Product {
         ? "in-stock"
         : "out-of-stock"
       : toStockStatus(raw.stockStatus),
+    specs: mapSpecs(raw),
     attributes: (raw.attributes?.nodes ?? []).map(mapAttribute),
     variations,
     type: isVariable ? "variable" : "simple",
@@ -173,17 +200,31 @@ function mapProduct(raw: RawProduct): Product {
  *
  * WordPress does not guarantee an order, so sorting happens here rather than in each page.
  *
+ * The read walks the connection with `after` until WordPress says there is no next page, because a
+ * single page is capped at 100 nodes and everything in the app — the ranges, the search index, the
+ * shop, and which product pages exist at all — is derived from what this returns.
+ *
  * `cache()` is per-request memoisation, not a longer-lived cache — the five-minute `revalidate`
  * in `graphql.ts` is what does that. It matters because `getCatalogue()` below reads the products
- * twice at once (`getCategories()` reads them too), so without this a single page render sends two
- * identical GraphQL requests.
+ * twice at once (`getCategories()` reads them too), so without this a single page render would send
+ * that whole chain of requests twice.
  */
 export const getProducts = cache(async (): Promise<Product[]> => {
-  const data = await wpQuery<CatalogueData>(CATALOGUE_QUERY);
+  const nodes: RawProduct[] = [];
+  let after: string | null = null;
 
-  return data.products.nodes
-    .map(mapProduct)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  do {
+    /*
+     * The result is annotated rather than inferred: the cursor it is asked for is the one the
+     * previous answer returned, and TypeScript cannot infer a type for it without going in circles.
+     */
+    const page: CatalogueData = await wpQuery<CatalogueData>(CATALOGUE_QUERY, after ? { after } : {});
+
+    nodes.push(...page.products.nodes);
+    after = page.products.pageInfo.hasNextPage ? page.products.pageInfo.endCursor : null;
+  } while (after);
+
+  return nodes.map(mapProduct).sort((a, b) => a.name.localeCompare(b.name));
 });
 
 /**
