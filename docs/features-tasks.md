@@ -303,7 +303,13 @@ report `scrollWidth === clientWidth` at 390; confirm each PNG with `file`.
 
 ---
 
-## T3 — Payment methods: selector, card form, method in the request — `[x]` done
+## T3 — Payment methods: selector, card form, method in the request — `[x]` done, **partly superseded**
+
+> **Partly superseded 2026-09-12 by the Stripe migration** (`../docs/stripe-tasks.md`, S1). The
+> method selector survives, now offering Card / QR / cash on delivery with **Stripe** as the first
+> entry and the default; the card *form* in this task (`components/checkout/card-form.tsx`) was
+> deleted, because the card fields are Stripe's own in an iframe and no card digit may reach this
+> app. Everything below that concerns the selector and `payment` in the request still holds.
 
 > verified 2026-09-11. `/tmp/ui/f3/verify-t3.cjs` + `report-t3.json` (Playwright 1.62 against the
 > dev server on **3000**), plus curl and a `grep` of the route.
@@ -413,7 +419,13 @@ Screenshots of each method selected at three widths.
 
 ---
 
-## T4 — Simulated 3-D Secure challenge and the declined path — `[x]` done
+## T4 — Simulated 3-D Secure challenge and the declined path — `[x]` done, **superseded**
+
+> **Superseded 2026-09-12 by the Stripe migration** (`../docs/stripe-tasks.md`, S1 and S4–S5).
+> `components/checkout/three-d-secure.tsx` and its sandbox card table were deleted: a real 3-D
+> Secure challenge now comes from Stripe, driven by whatever test card is used, and is verified in
+> S5 (`4000 0025 0000 3155` → challenge completed → order paid). The evidence below is what this
+> task was when the sandbox existed; it no longer describes the app.
 
 > verified 2026-09-11. `/tmp/ui/f4/verify-t4.cjs` + `report-t4.json`, Playwright against the dev
 > server on **3000**. Both sandbox cards, three widths, plus a reduced-motion run.
