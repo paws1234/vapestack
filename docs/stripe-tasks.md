@@ -673,6 +673,14 @@ labelled as simulations.
 > (`evt_3UEfjyDsJmFxD5A112AnpIza`) reports `pending_webhooks: **0**` — every endpoint notified. The
 > deployed route's own behaviour: a validly signed delivery → **200** `{"received":true}`, a forged
 > one → **400 `Invalid signature.`**
+>
+> Redo check (criterion 3), after the offline fix was pushed as `9e6e95a`: the git integration built
+> `vapestack-gguhgfpbj-…` from it (`vercel inspect … --wait` → **Ready**), and a second payment from
+> the public URL went through — `/checkout/success/**1069**`, `h1` **Paid**, cart emptied, no card
+> number in any body, 0 console errors; WooCommerce `status=processing paid=true
+> txn=pi_3UEfpCDsJmFxD5A12Arqeb5Y`, `date_paid 01:33:55`. That is the build-time check: a
+> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` missing from the build would have left Stripe.js unloaded and
+> the element absent, and the form would never have reached the payment step.
 
 **Goal** — The deployed site takes a test-mode payment, with the webhook endpoint registered against
 it.
