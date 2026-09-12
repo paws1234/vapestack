@@ -26,11 +26,13 @@ Next uses port 3000 and falls back to 3001 when that port is taken, so read the 
 
 ## Configuration
 
-Every variable is server-side. None of them is a `NEXT_PUBLIC_` variable, so no credential and no
-internal URL can reach the browser.
+No credential and no internal URL is a `NEXT_PUBLIC_` variable, so none of them can reach the
+browser. The three that are prefixed are public by design: one is an origin, one is Stripe's
+publishable key, and neither is a secret.
 
 | Variable | Read by |
 | --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | `src/lib/site.ts` — the origin every absolute URL is built from: `metadataBase`, each page's canonical, the OpenGraph image, the JSON-LD. **A deployment has to set it** or the canonical and the OpenGraph image claim `http://localhost:3000`, which is worse than emitting neither. |
 | `WP_GRAPHQL_URL` | `src/lib/wp/graphql.ts` — every catalogue read. |
 | `WP_REST_URL` | `src/lib/wp/rest.ts` — order creation and reading. |
 | `WP_INTERNAL_URL` | `src/lib/wp/publicUrl.ts` — the origin WordPress advertises for its uploads. |
@@ -40,6 +42,9 @@ internal URL can reach the browser.
 | `RESEND_API_KEY` | `src/lib/contact-mail.ts` — sends the contact form. Optional; unset, the route answers 503 and the form falls back to the visitor's mail client. |
 | `CONTACT_FROM_EMAIL` | `src/lib/contact-mail.ts` — the sender, defaulting to Resend's shared `onboarding@resend.dev`, which only delivers to the account's own address. |
 | `CONTACT_TO_EMAIL` | `src/lib/contact-mail.ts` — the recipient, defaulting to `CONTACT_EMAIL` in `src/lib/site.ts`. |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `src/lib/stripe/client.ts` — handed to `<Elements>` in the browser. Public by design. |
+| `STRIPE_SECRET_KEY` | `src/lib/stripe/client.ts` — the only place it is read. Test keys only: `tools/configure-stripe.sh` refuses a live one before it writes anything. |
+| `STRIPE_WEBHOOK_SECRET` | `src/app/api/stripe/webhook/route.ts` — what lets that route tell Stripe's own delivery from anyone else's POST. Unset, the route answers 400 to everything and `reconcileOrder()` on the order page is the only path that marks an order paid. |
 
 ## Where things live
 

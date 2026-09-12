@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CartButton } from "@/components/cart/cart-button";
 import { MobileNavButton } from "@/components/layout/mobile-nav-button";
 import { NavLinks } from "@/components/layout/nav-links";
+import { SearchButton } from "@/components/search/search-button";
 import { buttonStyles } from "@/components/ui/button";
 import { getCatalogue } from "@/lib/wp/catalog";
 
@@ -15,10 +16,16 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800 bg-ink-950/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-6 px-5 py-4 sm:px-8">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:gap-6 sm:px-8">
+        {/*
+          The wordmark carries less air below `sm` on purpose. At 320px the wordmark, search, menu
+          and cart cannot all fit with 0.25em tracking: measured, the controls ended 29px past the
+          viewport (x=349 in 320px). Tightening the tracking and the row's gap there is what buys
+          the room, rather than hiding a control.
+        */}
         <Link
           href="/"
-          className="text-lg font-semibold tracking-[0.25em] text-ink-50 transition hover:text-neon-400"
+          className="text-base font-semibold tracking-[0.12em] text-ink-50 transition hover:text-neon-400 sm:text-lg sm:tracking-[0.25em]"
         >
           VAPESTACK
         </Link>
@@ -40,6 +47,14 @@ export async function Header() {
           >
             Shop all
           </Link>
+
+          {/*
+            Icon-only and named by its label: the header's controls are the wordmark plus four
+            round buttons, so a word would not fit at 320px. It opens the dialog the layout mounts,
+            and it is the only thing that does - the docked overlay cannot be inside this element,
+            which is `backdrop-blur` and would become the containing block for it.
+          */}
+          <SearchButton />
 
           {/*
             Below `md` this is the only way to reach a range: the nav above is hidden and

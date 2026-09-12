@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AgeGate } from "@/components/age-gate";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -6,10 +6,17 @@ import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ShopOfflineStrip } from "@/components/layout/shop-offline-strip";
+import { SearchDialog } from "@/components/search/search-dialog";
 import { SkipLink } from "@/components/ui/skip-link";
 import { AGE_GATE_SCRIPT } from "@/lib/age-gate";
+import { buildSearchIndex } from "@/lib/search-index";
+import { siteUrl } from "@/lib/site";
 import { getCatalogue } from "@/lib/wp/catalog";
 import "./globals.css";
+
+/** One description, used by the metadata, OpenGraph and Twitter tags alike. */
+const DESCRIPTION =
+  "A portfolio vape storefront: Next.js and Tailwind in front, a real WooCommerce and WPGraphQL shop behind it. 21+ only, nothing ships.";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,21 +39,62 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  /*
+    `metadataBase` is what turns every relative URL in metadata - the OpenGraph image, the
+    canonical, the icon - into the absolute one a crawler or a chat client needs. Without it Next
+    warns and emits `http://localhost:3000` in production.
+  */
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "Vapestack",
     template: "%s | Vapestack",
   },
-  description:
-    "A headless vape storefront: Next.js and Tailwind on the front, WooCommerce and WPGraphQL behind it.",
+  description: DESCRIPTION,
+  applicationName: "Vapestack",
+  openGraph: {
+    type: "website",
+    siteName: "Vapestack",
+    title: "Vapestack",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vapestack",
+    description: DESCRIPTION,
+  },
+  /*
+    The tab icon is the brand mark, cut square out of `resources/image.jpg` and written to
+    `app/favicon.ico` by `resources/make-icons.mjs` - 16, 32 and 48 pixel frames in one file, which
+    is why no size is named here. Mentioning it explicitly rather than relying on the file
+    convention keeps it in the metadata where it can be seen.
+  */
+  icons: {
+    icon: [{ url: "/favicon.ico", sizes: "any" }],
+  },
+};
+
+/**
+ * The browser chrome colour, in the page background token.
+ *
+ * `themeColor` lives in the `viewport` export rather than in `metadata` - Next moved it, and a
+ * `themeColor` left in `metadata` is ignored with a warning.
+ */
+export const viewport: Viewport = {
+  themeColor: "#07080c",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const catalogue = await getCatalogue();
+  const categories = catalogue?.categories ?? [];
+
   /*
-    The mobile nav needs the same ranges the header shows. Reading them here rather than inside
-    the panel keeps `MobileNav` a plain client component, and costs nothing: `getCatalogue()` is
-    wrapped in React `cache()`, so the header's read and this one are the same read.
+    The search index comes from the read above - no second fetch, no route handler and nothing at
+    build time. It is deliberately slim: an entry is a name, where it goes and the words that find
+    it. The products' HTML descriptions stay on the server, where they are not paid for on every
+    page.
   */
-  const categories = (await getCatalogue())?.categories ?? [];
+  const searchIndex = buildSearchIndex(catalogue?.products ?? [], categories);
 
   return (
     <html
@@ -93,9 +141,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/*
           Both overlays live outside `<header>`: that element is `backdrop-blur`, and a
           `backdrop-filter` would make it the containing block for anything `fixed` inside it.
+          Both stay mounted and carry `inert` while closed, so a hidden panel cannot be tabbed
+          into.
         */}
         <CartDrawer />
         <MobileNav categories={categories} />
+        <SearchDialog index={searchIndex} />
         <AgeGate />
       </body>
     </html>

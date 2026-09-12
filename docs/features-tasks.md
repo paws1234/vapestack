@@ -587,6 +587,15 @@ method off the success page. Report both, and the `tsc` result.
 > every reading, next to a `Simulation` pill.
 > Shots `/tmp/ui/f6/{real-first,real-last,demo-first,demo-last}-*.png`, ten files, `file` reports
 > 1440x900, 768x1024 and 390x844.
+>
+> **Restored 2026-09-12.** `2e91ca9` "fixed things" deleted the `<OrderTimeline>` render from the
+> real order page - the demo receipt kept its own - leaving `startingStage()` referenced by
+> nothing while this box stayed ticked. Put back, then verified with `/tmp/timeline-check.cjs` and
+> `/tmp/timeline-step.cjs` (Playwright, production build on 3002): order **1069** (`processing`)
+> starts at stage **0**, order **1070** (`pending`) at stage **1**, one click moves 0 → 1 with the
+> log line `Quality check — simulated at 10:01:21` and `vapestack-timeline:1069` written; four
+> stages, `aria-current="step"` on one, control `Simulate the next step`, overflow 0 at 1440 and
+> 390.
 
 **Goal** — The order page shows four stages with the current one marked, and a clearly-marked
 reviewer control moves it along, persisted per order.
@@ -679,6 +688,15 @@ Screenshots of the first and last stage at each width, confirmed with `file`.
 > an extension of `stores/nav.ts`. The nav's state is one boolean; search also carries a query and a
 > highlight that must be cleared together on open, and folding that into the nav store would give the
 > nav a query it has no use for.
+>
+> **Restored 2026-09-12.** `2e91ca9` "fixed things" removed `<SearchButton />` from the header and
+> `<SearchDialog index={searchIndex} />` from the layout, so `lib/search-index.ts` and both search
+> components became dead code and the site served **no search control at all** while this box
+> stayed ticked. Both mounts put back, then verified with `/tmp/restore-check.cjs` (Playwright,
+> production build on 3002): the control is present at **320** with a right edge of 181px against a
+> 320px viewport and **0** overflow; `Control+K` opens the dialog (`#search-dialog`, not `inert`);
+> typing `zone` finds `Zone Tobacco Free Nicotine Pouches` (Product — Nicotine Pouches) with
+> **0** requests.
 
 **Goal** — `Cmd/Ctrl+K` opens a dialog that filters the catalogue as you type, with no request per
 keystroke and no new dependency.
