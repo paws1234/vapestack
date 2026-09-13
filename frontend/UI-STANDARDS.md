@@ -246,25 +246,27 @@ a swatch), and all three surfaces use it — the grid, the product page, the car
   Chrome's own behaviour for a missing image, and is left alone.
 
 **When the shop behind the site is gone, the page says so.**
-`components/layout/shop-offline-strip.tsx` renders one line above `<main>` on every route, and only
-when `lib/wp/liveness.ts` reports WordPress unreachable. It exists because the catalogue's
-five-minute cache keeps a closed tunnel looking like a working shop: the pages still list and price
-290 products, so only the photographs and the checkout betray it, and neither says why.
+`OfflineNotice` replaces a page whose own read of WordPress failed and the durable copy has nothing
+for either. It matters because the catalogue's five-minute cache keeps a closed tunnel looking like
+a working shop: the pages still list and price 290 products, so only the photographs and the
+checkout betray it, and neither says why.
 
-- **The strip is the summary; `OfflineNotice` is the detail.** The strip rides above pages that are
-  still rendering from the last successful read. The notice replaces a page whose own read failed.
-  On a route never fetched before the tunnel closed both appear, which is deliberate.
+- **The live-shop strip that used to ride above `<main>` has been removed.** It announced the closed
+tunnel on top of pages that were still rendering from the last successful read, but the visitor
+reading one of those pages is already being served a complete catalogue, and the strip turned a
+degraded backend into a message on every route. `lib/wp/liveness.ts` stays: `lib/wp/catalog.ts`
+still asks it before deciding whether to read live or from the published copy.
 - **A cached liveness check answers the wrong question.** The first version reused its answer for ten
   seconds through Next's data cache and was wrong in exactly the way it was written to detect: with
   WordPress stopped it kept answering *reachable* for minutes, because a stale entry whose background
   revalidation fails is served rather than replaced — the same trap the catalogue's own cache sets.
   The answer now lives in a module-level value with a `Date.now()` TTL, which a **failed** probe
-  overwrites like any other, so it cannot stick. Measured before and after: no strip at all while
-  WordPress was down (bug), strip present on every route within one TTL (fixed).
+  overwrites like any other, so it cannot stick. Measured before and after: the probe reported the
+  shop up while it was down (bug), correct within one TTL (fixed).
 - **What the check costs, measured:** ~90ms on the one view that asks — about once every ten seconds,
   per server instance — and 15–26ms on the views that do not, against ~15ms before it existed. It is
   on the render path, so it is a cost worth knowing; `after()`-refreshed status would move it off the
-  response but would show the strip one navigation late.
+  response but would act on a stale answer for one navigation.
 - **`GET`, not `HEAD`.** This site's GraphQL endpoint answers HEAD with **500** and GET with
   `{"data":{"__typename":"RootQuery"}}` in 137ms, so a HEAD probe would report the shop down
   while it is up.

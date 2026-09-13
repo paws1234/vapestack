@@ -83,7 +83,7 @@ Measured, not assumed:
    nothing. A page must never 500 because an editor inserted a block the renderer has not met.
 6. **WordPress is the source of truth for this copy**, which means these five pages stop working
    when the tunnel is closed. That is the reversal named above; the mitigation is the same one every
-   other route uses — `OfflineNotice` and the offline strip — not a second copy of the text in code.
+   other route uses — `OfflineNotice` — not a second copy of the text in code.
 7. **Seeding goes in the theme's `tools/`,** next to `seed-products.php`, and writes the current copy
    as blocks so the editor opens on real content rather than an empty canvas.
 
