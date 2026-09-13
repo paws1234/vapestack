@@ -2,6 +2,11 @@
 .env
 .mcp.json
 
+# The state mirror's PostgreSQL connection string, written from the example beside it by
+# tools/configure-mirror.sh. It carries a database password, so it stays out of the repository. The
+# example beside it does not, and is committed.
+mirror/.mirror.env
+
 # Holds the Elementor MCP server's Basic credential in the clear. It is not a placeholder and not
 # a hash, it is the credential itself, so it stays out of the repository.
 .elementor-mcp-credential

@@ -54,3 +54,76 @@ export function publicUrl(url: string | null | undefined): string | null {
     return url;
   }
 }
+
+/** Where an upload sits inside a WordPress URL. */
+const UPLOAD_PREFIX = "/wp-content/uploads/";
+
+/** This app's own route for a stored upload. */
+const MEDIA_ROUTE = "/media/";
+
+/**
+ * The path inside `wp-content/uploads` that a WordPress upload URL names.
+ *
+ * The inverse of `publicUrl`, and it matches on host and port for the same reason: whether WordPress
+ * believes the request arrived over HTTPS is not something this app can rely on.
+ *
+ * @param url URL as returned by WordPress.
+ * @returns The path after `/wp-content/uploads/`, or null when the URL is not one of ours.
+ */
+export function uploadPathFor(url: string): string | null {
+  const internal = process.env.WP_INTERNAL_URL;
+
+  if (!internal) {
+    return null;
+  }
+
+  try {
+    const source = new URL(url);
+
+    if (source.host !== new URL(internal).host) {
+      return null;
+    }
+
+    return source.pathname.startsWith(UPLOAD_PREFIX) ? source.pathname.slice(UPLOAD_PREFIX.length) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Points every WordPress upload inside a stored document at this app's own media route.
+ *
+ * The published copy of the catalogue is the WordPress response verbatim - upload URLs and all -
+ * and those URLs name a machine that may be switched off. Rewriting them as the document is read
+ * keeps the live path untouched: while WordPress *is* reachable, its own URLs are served directly
+ * and the image optimiser fetches from it exactly as before, and it is only the stored path that
+ * gets URLs the deployment can answer by itself.
+ *
+ * @param value A parsed document of any shape.
+ */
+export function rewriteUploadUrls<T>(value: T): T {
+  return walk(value) as T;
+}
+
+/**
+ * The recursion behind `rewriteUploadUrls`.
+ *
+ * @param value Any JSON value.
+ */
+function walk(value: unknown): unknown {
+  if ("string" === typeof value) {
+    const path = uploadPathFor(value);
+
+    return path ? `${MEDIA_ROUTE}${path}` : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(walk);
+  }
+
+  if (value && "object" === typeof value) {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, walk(entry)]));
+  }
+
+  return value;
+}

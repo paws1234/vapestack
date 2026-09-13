@@ -37,6 +37,7 @@ publishable key, and neither is a secret.
 | `WP_REST_URL` | `src/lib/wp/rest.ts` — order creation and reading. |
 | `WP_INTERNAL_URL` | `src/lib/wp/publicUrl.ts` — the origin WordPress advertises for its uploads. |
 | `WP_PUBLIC_URL` | `src/lib/wp/publicUrl.ts` — the origin the browser should load them from. |
+| `MIRROR_DATABASE_URL` | `src/lib/snapshot/db.ts` — the PostgreSQL database holding the published catalogue and the shop's photographs, which is what lets a deployment answer with WordPress switched off. The same variable and the same value as in `../mirror/.mirror.env`; this app connects through the transaction pooler port (6543) derived from it, while `state.sh` uses the value as given. Unset, the feature is off and every read goes to WordPress. |
 | `WP_CONSUMER_KEY` | `src/lib/wp/rest.ts` — the Basic auth user. |
 | `WP_CONSUMER_SECRET` | `src/lib/wp/rest.ts` — its application password. |
 | `RESEND_API_KEY` | `src/lib/contact-mail.ts` — sends the contact form. Optional; unset, the route answers 503 and the form falls back to the visitor's mail client. |
@@ -51,27 +52,28 @@ publishable key, and neither is a secret.
 | Path | What it holds |
 | --- | --- |
 | `UI-STANDARDS.md` | The measured UI record: contrast ratios, type and spacing rhythm, control states, a11y checklist, motion rules, the responsive contract, Tailwind v4 traps. Read it before any visual change. |
-| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the four API routes (`checkout`, `orders/[id]`, `contact`, `stripe/webhook`), and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
-| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its two steps (details, then Stripe's own card fields), the order timeline, the search dialog, the age gate, and the strip that says the shop behind the site is offline. The cart drawer's hold banner and reward ladder live with the cart. |
+| `src/app/` | Routes: `/`, `/shop`, `/shop/[category]`, `/product/[slug]`, `/checkout`, `/checkout/success/[id]`, the five info pages (`/about`, `/contact`, `/shipping-returns`, `/privacy`, `/terms`), the four API routes (`checkout`, `orders/[id]`, `contact`, `stripe/webhook`), `/media/[...path]` which serves a stored photograph, and the four metadata routes (`robots.txt`, `sitemap.xml`, `opengraph-image`, `favicon.ico`). Plus `not-found.tsx` and `error.tsx`. `favicon.ico` is generated, not hand-made: it is the brand mark cut square by `../resources/make-icons.mjs`. |
+| `src/components/` | UI primitives, the layout shell, product and cart components, the checkout form with its two steps (details, then Stripe's own card fields), the order timeline, the search dialog, the age gate, and the strip that says the live shop is not answering. The cart drawer's hold banner and reward ladder live with the cart. |
 | `src/components/product/` | Everything that describes one product: the card, the photo tile every photograph sits on, the detail block, the quantity picker, the breadcrumbs, the spec/shipping notes, the related row, and the JSON-LD emitters. |
-| `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client, and the liveness probe the offline strip reads. |
+| `src/lib/wp/` | Everything that knows about WordPress: the GraphQL transport, the query documents, the catalogue mapping, the REST client, and the liveness probe the strip reads. |
+| `src/lib/snapshot/` | The durable copy, and the only code that talks to a database: the connection (`db.ts`), and reading and writing the published catalogue and photographs (`store.ts`). Both are no-ops without `MIRROR_DATABASE_URL`. |
 | `src/lib/` | Helpers that are not about WordPress: variation resolution, the shop sort, `site.ts` (the absolute origin metadata needs), the shared modal behaviour, the cart hold's arithmetic (`cart-hold.ts`) with its clock (`use-live-hold.ts`), the spend ladder (`cart-rewards.ts`), the payment methods (`payment-simulation.ts`), the product tile's colour (`product-image.ts`), the order timeline's stages with their per-order storage (`order-timeline.ts`), and the search index built from the layout's catalogue read (`search-index.ts`). |
 | `src/lib/stripe/` | Everything that knows about Stripe, all of it server-only: the client (`client.ts`, the one place `STRIPE_SECRET_KEY` is read), the money conversion (`amount.ts`), and the Payment Intent (`payment.ts`). |
 | `src/stores/` | The persisted Zustand cart, the mobile nav's open state, and the search dialog's open state with its query. |
-| `public/` | Static assets. Product images are not among them: the catalogue is imported, and each product's photograph is served from the WordPress media library. |
+| `public/` | Static assets. Product images are not among them: the catalogue is imported, and each product's photograph is served from the WordPress media library — or, when the shop is away, from the published copy through `/media/`. |
 
 ## Four things worth knowing before changing this app
 
 - **Every route is dynamic on purpose, declared once in `src/app/layout.tsx`.** The header reads the
   catalogue for its navigation, so every page touches WordPress, and nothing may be fetched during
-  `npm run build`: a build must not fail because the WordPress tunnel happens to be closed. Do not
+  `npm run build`: a build must not fail because the shop happens to be closed. Do not
   add `generateStaticParams`, and do not make a page static, without re-deciding that trade. The
   catalogue's five-minute data cache is what keeps this from being a read on every view.
 - **WordPress being unreachable is an expected state, not an error.** `src/lib/wp/upstream.ts` types
-  it, the listing pages render `OfflineNotice` instead of failing, and the checkout answers demo
-  mode rather than an error: no order is created, and the browser is shown the receipt for what it
-  was about to send. Keep that path working when touching `catalog.ts`, `rest.ts` or the checkout
-  route.
+  it, `catalog.ts` answers it from the published copy when there is one and `OfflineNotice` when
+  there is not, and the checkout answers demo mode rather than an error: no order is created, and the
+  browser is shown the receipt for what it was about to send. Keep that path working when touching
+  `catalog.ts`, `rest.ts` or the checkout route.
 - **Cart state lives in `localStorage`, and checkout is a demo.** The cart is client-side only; the
   order is created server-side with a credential the browser never sees. No order is shipped or
   emailed, and the only charge that can happen is a Stripe one in test mode — which moves no real

@@ -1,0 +1,50 @@
+# Project-level additions to the kit's docker-compose.yml.
+#
+# This file works because of a detail in the kit: `wpdev` calls `docker compose` with **no `-f`**
+# flag, in this directory, so Compose merges `docker-compose.override.yml` into every one of its
+# commands - `up`, `down`, `restart`, `logs`, `ps` - without being told to. It is also the right
+# place for project settings, because `wpdev add plugin|theme` rewrites `docker-compose.yml` itself
+# (see `add_mount` in the kit), which would quietly clobber an edit made in there.
+#
+# Four changes to the wordpress service, one per line-group below:
+#
+#   image       the mirror build - a thin layer adding mariadb-client and postgresql-client
+#   entrypoint  hydrate before Apache, then exec the image's entrypoint (mirror/entrypoint.sh)
+#   pre_stop    write a snapshot before the container is stopped (mirror/state.sh export)
+#   volumes     ./mirror mounted over the copy baked into the image, so editing the mirror scripts
+#               takes effect on restart instead of needing a rebuild
+#
+# **`pre_stop` is the shutdown half.** Compose runs it in the container, as root, before it stops
+# anything - so the export happens with Apache and MariaDB both still up, and no part of this stack
+# has to survive a signal to write a snapshot. It was chosen after measuring that the alternative
+# does not work here: a bash trap on SIGTERM as PID 1 never fired (see mirror/entrypoint.sh).
+#
+# Two consequences worth knowing:
+#
+#   * It runs for Compose verbs - `down`, `stop`, `restart`, and so `wpdev down`, `wpdev restart`
+#     and `wpdev destroy`. A bare `docker stop` bypasses Compose and therefore skips it, which is
+#     what `bash tools/mirror.sh push` is for.
+#   * `stop_grace_period` is deliberately not raised. It only ever mattered because the old design
+#     exported *during* the stop; now the stop is just a web server going down, and the export's own
+#     bound is MIRROR_TIMEOUT in mirror/.mirror.env.
+#
+# The `db` service is untouched, and so is `cli` - which is what `wpdev wp` and `wpdev shell` use,
+# and which keeps the kit's base image and its `wp` entrypoint.
+services:
+    wordpress:
+        build:
+            context: .
+            dockerfile: mirror/Dockerfile
+        image: vapestack-wp:php8.3
+        entrypoint: [ "/opt/mirror/entrypoint.sh" ]
+        # Passed through to the image's own entrypoint, which does nothing at all unless it sees
+        # this argument first.
+        command: [ "apache2-foreground" ]
+        # Compose does not show a hook's output, and a mirror that quietly stops working is the
+        # worst failure this feature can have, so the export's own output is kept instead of
+        # discarded. `bash tools/mirror.sh logs` reads it; the file is covered by the `*.log` rule
+        # in .gitignore and lives in the wp_data volume, so it never reaches the repository.
+        pre_stop:
+            - command: /bin/sh -c "/opt/mirror/state.sh export >> /var/www/html/wp-content/mirror.log 2>&1"
+        volumes:
+            - ./mirror:/opt/mirror:ro

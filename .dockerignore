@@ -1,0 +1,7 @@
+# The mirror image starts FROM the kit's shared wp-dev image and adds two client packages; it needs
+# `mirror/` and nothing else. Without this file the build context is the whole project, which sends
+# 42 MB of uploads, frontend/node_modules and .git to the daemon on every build. Same shape as the
+# kit's own .dockerignore.
+*
+!mirror
+!mirror/**

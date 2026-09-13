@@ -4,10 +4,10 @@ A headless vape storefront: WordPress and WooCommerce as the commerce backend, a
 the storefront. Everything here is a demo — no payment is ever taken, no email is sent and nothing
 ships.
 
-**Live demo:** <https://vapestack-paws1234s-projects.vercel.app> — the storefront runs on Vercel,
-and the WordPress it reads from runs on a development machine behind a tunnel. When that machine is
-off the shop serves its last cached catalogue, the product images still load, and checkout says
-plainly that no order was created.
+**Live demo:** <https://vapestack-paws1234s-projects.vercel.app> — the storefront runs on Vercel and
+needs nothing else running. It reads WordPress when WordPress is reachable, and answers from a
+published copy of the catalogue and its photographs when it is not. Checkout is the exception: it
+needs WooCommerce itself to create an order, so it says plainly that no order was created.
 
 - **Backend** — WordPress with WooCommerce 11, WPGraphQL and GraphQL for eCommerce, running in
   Docker through the `wpdev` kit on `http://localhost:8889`. The catalogue is **290 imported
@@ -41,7 +41,8 @@ rule. It is the file to read before changing anything on screen.
 | --- | --- |
 | `frontend/` | The Next.js storefront. Its own README covers the app itself. |
 | `wp-content/themes/vapestack-theme/` | The project's WordPress code: `tools/import-source-products.php` imports the fixture in `tools/data/`, and `tools/seed-products.php` is the original six-product demo catalogue, no longer loaded. |
-| `tools/` | Host-side scripts: plugin install, the source fetcher, the tunnel, and the contact form's mail key. |
+| `mirror/` | The state mirror: the thin image layer over the kit's, the entrypoint that hydrates before Apache, and `state.sh`, which serialises the database and the uploads to PostgreSQL and rebuilds from them. `docs/state-mirror.md` explains it. |
+| `tools/` | Host-side scripts: plugin install, the source fetcher, the tunnel, the contact form's mail key, and the two mirror commands. |
 | `resources/` | Brand assets: the supplied artwork and the generator that turns it into the site's tab icon. Nothing here is served directly. |
 | `docs/` | The original brief, setup notes, and the frozen GraphQL contract. |
 | `.claude/` | The plan and its task list — the record of what was built and how it was verified. |
@@ -82,24 +83,57 @@ The prompt reads the key with `read -s`, so it is never echoed and never passed 
 same key has to be added to the deployed project's environment variables as well, or the deployed
 form keeps answering that it has no provider.
 
+## Keeping the site (the state mirror)
+
+The database lives in a Docker volume, and the uploads are on this disk and gitignored. So
+`wpdev destroy`, a dead disk, or a different machine loses the shop - its products, its orders, every
+photograph - with nothing to rebuild it from. The state mirror is a one-way copy of exactly those two
+things to an external PostgreSQL database, plus a boot script that puts them back.
+
+```bash
+bash tools/configure-mirror.sh    # once: connection string, schema, first snapshot
+bash tools/mirror.sh status       # what is local, and what the mirror holds
+bash tools/mirror.sh push         # snapshot now          pull: rebuild from the newest snapshot
+```
+
+It is off until it is configured. With no connection string, nothing is exported and nothing is
+hydrated, and the site behaves exactly as it did before this existed. Two things are worth knowing
+before leaning on it:
+
+- **Hydration fills an empty database and never overwrites a populated one**, so it rebuilds a wiped
+  machine without discarding anything done since the last snapshot.
+- **Plugin code is not in a snapshot.** Elementor, WooCommerce and the MCP adapter live in a Docker
+  volume and are reinstalled from the kit's cache by `wpdev setup` and `tools/install-plugins.sh`;
+  the mirror carries the content, not other people's PHP.
+
+`docs/state-mirror.md` has the hooks, what a snapshot holds, the measurements taken while building
+it, and the limitations.
+
 ## How the deploy works
 
 The storefront is deployed to Vercel with its **Root Directory set to `frontend`**, so WordPress is
-not part of the build. Two deliberate choices keep the deployed site useful while WordPress is only
-reachable through a tunnel that lives as long as the development machine:
+not part of the build — and the deployment does not depend on the development machine being on.
+Three deliberate choices make that true:
 
 1. **Every catalogue route is dynamic**, so the Vercel build fetches nothing from WordPress and
-   cannot fail because the tunnel is down. At runtime a warm data cache keeps serving the catalogue
-   when WordPress is unreachable.
-2. **The product photographs are served by WordPress**, so with the tunnel down the catalogue still
-   lists and prices every product but the images do not load. They are another shop's photographs and
-   are deliberately not committed here; the alternative would be putting somebody else's pictures in
-   a public repository. Checkout necessarily degrades too, and says so.
+   cannot fail because the shop is away.
+2. **The catalogue is published to a durable copy** — the same PostgreSQL database the state mirror
+   writes to (`docs/state-mirror.md`). Every complete read is stored there, and a read that cannot
+   reach WordPress is answered from it instead of by the offline notice: the header's navigation,
+   the ranges, the product pages, the search index and `/sitemap.xml` all come out of that copy.
+3. **The photographs are published with it.** `mirror/state.sh` already stores every upload in that
+   same database, so `/media/<path>` serves them from there, immutably cached at the edge. They are
+   another shop's photographs and are still deliberately not committed to this repository — the
+   alternative would be putting somebody else's pictures in a public one.
 
-WordPress is exposed with a **cloudflared quick tunnel**, which gets a new random
-`*.trycloudflare.com` hostname every time it restarts. `tools/tunnel.sh` starts it, reads the
-hostname and re-points the Vercel environment, so the changing host is handled in one command
-rather than by hand.
+Checkout is the one thing that cannot survive this: an order is what Stripe's Payment Intent is
+created against, so with the shop away the checkout says so rather than pretending.
+
+The tunnel is still how a *fresh* read happens. WordPress is exposed with a **cloudflared quick
+tunnel**, which gets a new random `*.trycloudflare.com` hostname every time it restarts.
+`tools/tunnel.sh` starts it, reads the hostname and re-points the Vercel environment, so the
+changing host is handled in one command — run it when you want the published copy refreshed. The
+site is complete without it.
 
 ```bash
 npx --yes vercel login                                   # once
@@ -118,6 +152,19 @@ place **before** a build — setting it afterwards only affects the next deploym
 back to `http://localhost:3000`, which is right for `next dev` and wrong for everything else: the
 canonical link on every page, `/robots.txt` and all 306 entries in `/sitemap.xml` would name the
 author's laptop.
+
+`MIRROR_DATABASE_URL` is the third variable the tunnel script does not touch, and like
+`RESEND_API_KEY` it is set once rather than per tunnel: it is the PostgreSQL database holding the
+published copy, and it does not care which host the live shop is reachable through. It is the same
+variable, with the same value, as the one `mirror/.mirror.env` defines - one database, one name -
+and it has to be a Supabase project's **session pooler**, never `db.<ref>.supabase.co`, which
+publishes no A record at all and so cannot be reached from a serverless function. Unset, the
+deployment still works and simply has no copy to fall back on.
+
+One value, two consumers, and they need different modes of the same pooler: `mirror/state.sh`
+connects through session mode (5432) for its scripts, while the storefront rewrites the port to the
+transaction pooler (6543), because session mode caps concurrent clients at 15 and a serverless
+function scaling out reaches that in seconds. The rule lives in `frontend/src/lib/snapshot/db.ts`.
 
 Deploys run from the repository root rather than from `frontend/`. The project's Root Directory is
 `frontend`, so the CLI has to upload the repository and let that setting pick the storefront out of

@@ -6,8 +6,10 @@
  */
 
 import { cache } from "react";
+import { loadCatalogue, saveCatalogue } from "../snapshot/store";
 import { wpQuery } from "./graphql";
-import { publicUrl } from "./publicUrl";
+import { isShopReachable } from "./liveness";
+import { publicUrl, rewriteUploadUrls } from "./publicUrl";
 import { CATALOGUE_QUERY } from "./queries";
 import type {
   Category,
@@ -210,22 +212,80 @@ function mapProduct(raw: RawProduct): Product {
  * that whole chain of requests twice.
  */
 export const getProducts = cache(async (): Promise<Product[]> => {
+  /*
+   * Whether the shop is there is asked *before* the read rather than inferred from the read
+   * failing, and that order is load-bearing.
+   *
+   * A closed shop is not visible through Next's data cache: an entry whose background revalidation
+   * fails is served stale rather than replaced, so the failing fetch never reaches the `catch`
+   * below - the page keeps rendering the *last* document, whose image URLs name a host that is
+   * long gone. `liveness.ts` documents this exact trap for the probe itself, and the same trap
+   * applies one level up. Asking first is also what keeps the catalogue, the photographs and the
+   * strip in agreement, because all three then answer from the one signal.
+   */
+  if (!(await isShopReachable())) {
+    const published = await loadCatalogue();
+
+    if (published) {
+      return toProducts(rewriteUploadUrls(published) as RawProduct[]);
+    }
+  }
+
   const nodes: RawProduct[] = [];
   let after: string | null = null;
 
-  do {
+  try {
+    do {
+      /*
+       * The result is annotated rather than inferred: the cursor it is asked for is the one the
+       * previous answer returned, and TypeScript cannot infer a type for it without going in circles.
+       */
+      const page: CatalogueData = await wpQuery<CatalogueData>(CATALOGUE_QUERY, after ? { after } : {});
+
+      nodes.push(...page.products.nodes);
+      after = page.products.pageInfo.hasNextPage ? page.products.pageInfo.endCursor : null;
+    } while (after);
+  } catch (error) {
     /*
-     * The result is annotated rather than inferred: the cursor it is asked for is the one the
-     * previous answer returned, and TypeScript cannot infer a type for it without going in circles.
+     * Reached when the shop answered the probe and then failed - a 5xx, or a tunnel that closed
+     * between the two. A GraphQL error is deliberately *not* caught: that means the query or the
+     * catalogue is wrong, and answering it with a stale set of products would hide a real fault
+     * behind a shop that looks perfectly fine.
      */
-    const page: CatalogueData = await wpQuery<CatalogueData>(CATALOGUE_QUERY, after ? { after } : {});
+    if (!(error instanceof UpstreamUnavailableError)) {
+      throw error;
+    }
 
-    nodes.push(...page.products.nodes);
-    after = page.products.pageInfo.hasNextPage ? page.products.pageInfo.endCursor : null;
-  } while (after);
+    const published = await loadCatalogue();
 
-  return nodes.map(mapProduct).sort((a, b) => a.name.localeCompare(b.name));
+    if (!published) {
+      throw error;
+    }
+
+    return toProducts(rewriteUploadUrls(published) as RawProduct[]);
+  }
+
+  /*
+   * Awaited on purpose. It happens once per cache miss rather than once per page view, and an
+   * un-awaited write is the one a serverless instance is entitled to drop when it answers.
+   */
+  await saveCatalogue(nodes, process.env.WP_PUBLIC_URL ?? null);
+
+  return toProducts(nodes);
 });
+
+/**
+ * Maps raw products into the storefront's own shape, in a stable order.
+ *
+ * WordPress does not guarantee an order, so sorting happens here rather than in each page - and it
+ * is here, rather than in both branches of the read above, so that a served-from-storage catalogue
+ * and a freshly read one cannot drift apart.
+ *
+ * @param nodes Raw products, from WordPress or from the published copy.
+ */
+function toProducts(nodes: RawProduct[]): Product[] {
+  return nodes.map(mapProduct).sort((a, b) => a.name.localeCompare(b.name));
+}
 
 /**
  * Finds one product by its slug.
